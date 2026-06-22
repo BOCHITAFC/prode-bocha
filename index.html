@@ -597,7 +597,6 @@ function showView(view) {
 // ===== POSICIONES =====
 async function renderPosiciones() {
   const c = document.getElementById('tabla-cont');
-  c.innerHTML = '';
   const { data } = await sb.from('tabla_posiciones').select('*');
   if (!data?.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">🏆</div><div class="empty-txt">Sin posiciones aún</div></div>'; return; }
   c.innerHTML = `<div class="tabla">
