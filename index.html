@@ -220,6 +220,7 @@ select option{background:#1a1a1a}
 
 /* ADMIN USUARIOS */
 .usr-row{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:13px 18px;margin-bottom:8px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:16px}
+.usr-row.usr-suspendido{opacity:.5;border-color:var(--warning)}
 .usr-info{display:flex;align-items:center;gap:10px}
 .usr-nombre{font-family:'Bebas Neue',sans-serif;font-size:16px}
 .usr-alias{font-size:13px;color:var(--lime)}
@@ -963,12 +964,18 @@ async function renderAdminUsuarios() {
   const { data, error } = await sb.from('profiles').select('*').neq('id', cUser.id).order('created_at');
   if (!data?.length) { c.innerHTML='<div class="empty"><div class="empty-txt">Sin usuarios</div></div>'; return; }
   c.innerHTML = data.map(u=>`
-    <div class="usr-row">
+    <div class="usr-row ${u.suspendido?'usr-suspendido':''}">
       <div class="usr-info">
         <div class="mini-avatar">${u.avatar_url?`<img src="${u.avatar_url}" alt="">`:h(u.alias||'?').slice(0,2).toUpperCase()}</div>
-        <div><div class="usr-nombre">${h(u.nombre)} ${h(u.apellido)}</div><div class="usr-alias">@${h(u.alias)}</div></div>
+        <div>
+          <div class="usr-nombre">${h(u.nombre)} ${h(u.apellido)} ${u.suspendido?'<span style="font-size:10px;color:var(--warning);letter-spacing:.08em">SUSPENDIDO</span>':''}</div>
+          <div class="usr-alias">@${h(u.alias)}</div>
+        </div>
       </div>
-      <button class="btn btn-ghost btn-sm" onclick="resetPw('${h(u.nombre)}')">Reset PW</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="toggleSuspender('${u.id}', ${u.suspendido})">${u.suspendido?'Reactivar':'Suspender'}</button>
+        <button class="btn btn-danger btn-sm" onclick="eliminarUsuario('${u.id}', '${h(u.nombre)}')">✕</button>
+      </div>
     </div>`).join('');
 }
 
@@ -989,6 +996,19 @@ async function saveUsuario(e) {
   toast('Usuario creado. Contraseña: BOCHA0123','success');
   closeModal('modal-usr'); renderAdminUsuarios();
   btn.textContent='Crear'; btn.disabled=false;
+}
+
+async function toggleSuspender(id, suspendido) {
+  const { error } = await sb.from('profiles').update({ suspendido: !suspendido }).eq('id', id);
+  if (error) toast(error.message, 'error');
+  else { toast(suspendido ? 'Usuario reactivado' : 'Usuario suspendido', 'success'); renderAdminUsuarios(); }
+}
+
+async function eliminarUsuario(id, nombre) {
+  if (!confirm(`¿Eliminar a ${nombre}? Esta acción no se puede deshacer.`)) return;
+  const { error } = await sb.from('profiles').delete().eq('id', id);
+  if (error) toast(error.message, 'error');
+  else { toast('Usuario eliminado', 'success'); renderAdminUsuarios(); }
 }
 
 async function resetPw(nombre) {
