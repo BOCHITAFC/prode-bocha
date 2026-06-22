@@ -992,7 +992,9 @@ async function saveUsuario(e) {
   const nombre=v('mu-nombre'),apellido=v('mu-apellido'),alias=v('mu-alias'),email=v('mu-email');
   const { data, error } = await sbAnon.auth.signUp({ email, password:'BOCHA0123' });
   if (error) { err.textContent=error.message; err.style.display='block'; btn.textContent='Crear'; btn.disabled=false; return; }
-  if (data.user) await sb.from('profiles').insert({ id:data.user.id, nombre, apellido, alias });
+  if (!data.user) { err.textContent='No se pudo crear el usuario en auth.'; err.style.display='block'; btn.textContent='Crear'; btn.disabled=false; return; }
+  const { error: profErr } = await sb.from('profiles').insert({ id:data.user.id, nombre, apellido, alias });
+  if (profErr) { err.textContent='Auth OK pero error en perfil: '+profErr.message; err.style.display='block'; btn.textContent='Crear'; btn.disabled=false; return; }
   toast('Usuario creado. Contraseña: BOCHA0123','success');
   closeModal('modal-usr'); renderAdminUsuarios();
   btn.textContent='Crear'; btn.disabled=false;
