@@ -4,3 +4,10 @@ email-templates/
 BOCHA_PRODE_AVATAR.svg
 BOCHA_PRODE_BG.png
 *.zip
+fonts/
+supabase/.temp/
+schema.sql
+.claude/
+LOGO_PRODE.png
+LOGO_PRODE.svg
+LOGO_PRODE_HEADER.svg
