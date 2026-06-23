@@ -100,6 +100,15 @@ Deno.serve(async (req) => {
         const rawMin = game.game_time
         const minuto = estado === 'en_juego' && rawMin != null && rawMin !== '' ? parseInt(String(rawMin)) || null : null
 
+        const mapGoles = (goals: any[]) => (goals || []).map(g => ({
+          nombre: g.player_sname || g.player_name,
+          minuto: g.time_to_display,
+        }))
+        const goleadores = {
+          local: mapGoles(game.teams?.[0]?.goals),
+          visitante: mapGoles(game.teams?.[1]?.goals),
+        }
+
         const { error } = await supabase.from('partidos').upsert({
           equipo_local_id: localEq.id,
           equipo_visitante_id: visEq.id,
@@ -109,6 +118,7 @@ Deno.serve(async (req) => {
           goles_local: golesLocal,
           goles_visitante: golesVis,
           minuto: estado === 'en_juego' ? minuto : null,
+          goleadores,
         }, { onConflict: 'equipo_local_id,equipo_visitante_id,jornada' })
 
         if (error) { console.error('upsert error:', error); skipped++ }

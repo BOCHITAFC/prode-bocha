@@ -718,12 +718,26 @@ function buildPartidoCard(p, prono) {
     </div>`;
   }
 
+  let goleadoresHtml = '';
+  if (p.estado === 'finalizado' && p.goleadores) {
+    const fmtGoles = (arr) => (arr||[]).map(g => `${h(g.minuto)} ${h(g.nombre)}`).join(' · ');
+    const locStr = fmtGoles(p.goleadores.local);
+    const visStr = fmtGoles(p.goleadores.visitante);
+    if (locStr || visStr) {
+      goleadoresHtml = `<div class="goleadores-row" style="grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:6px 0 2px;border-top:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--muted);line-height:1.5">${locStr}</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5;text-align:right">${visStr}</div>
+      </div>`;
+    }
+  }
+
   const clickAttr = p.estado === 'finalizado' ? ` onclick="togglePronos(this,${p.id})"` : '';
   return `<div class="partido-card anim-enter ${p.estado==='finalizado'?'finalizado':''} ${p.estado==='en_juego'?'en-juego':''}" data-pid="${p.id}" style="animation-delay:${delay}ms;${p.estado==='finalizado'&&prono?'grid-template-columns:1fr auto 1fr auto':''}"${clickAttr}>
     <div class="p-equipo">${lImg}<span class="p-nombre">${h(p.local?.nombre||'Local')}</span></div>
     <div class="p-centro">${estadoHtml}${centroHtml}${pronoHtml}</div>
     <div class="p-equipo right">${vImg}<span class="p-nombre">${h(p.visitante?.nombre||'Visitante')}</span></div>
     ${ptsCardHtml}
+    ${goleadoresHtml}
     ${p.estado==='finalizado'?'<div class="pronos-panel" data-loaded="0"><div class="pronos-list"><div class="prono-loading">CARGANDO...</div></div></div>':''}
   </div>`;
 }
