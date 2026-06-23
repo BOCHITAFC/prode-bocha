@@ -546,6 +546,25 @@ function patchPartidoCard(p) {
       }
     }
   }
+
+  // Actualizar goleadores
+  if (p.goleadores) {
+    const fmtGoles = (arr) => (arr||[]).map(g => `${g.minuto} ${g.nombre}`).join(' · ');
+    const locStr = fmtGoles(p.goleadores.local);
+    const visStr = fmtGoles(p.goleadores.visitante);
+    let gRow = card.querySelector('.goleadores-row');
+    if (locStr || visStr) {
+      if (!gRow) {
+        gRow = document.createElement('div');
+        gRow.className = 'goleadores-row';
+        gRow.style.cssText = 'grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:6px 0 2px;border-top:1px solid var(--border)';
+        const pronosPanel = card.querySelector('.pronos-panel');
+        if (pronosPanel) card.insertBefore(gRow, pronosPanel);
+        else card.appendChild(gRow);
+      }
+      gRow.innerHTML = `<div style="font-size:11px;color:var(--muted);line-height:1.5">${locStr}</div><div style="font-size:11px;color:var(--muted);line-height:1.5;text-align:right">${visStr}</div>`;
+    }
+  }
 }
 
 function authTab(t) {
