@@ -719,7 +719,7 @@ function buildPartidoCard(p, prono) {
   }
 
   let goleadoresHtml = '';
-  if (p.estado === 'finalizado' && p.goleadores) {
+  if ((p.estado === 'finalizado' || p.estado === 'en_juego') && p.goleadores) {
     const fmtGoles = (arr) => (arr||[]).map(g => `${h(g.minuto)} ${h(g.nombre)}`).join(' · ');
     const locStr = fmtGoles(p.goleadores.local);
     const visStr = fmtGoles(p.goleadores.visitante);
