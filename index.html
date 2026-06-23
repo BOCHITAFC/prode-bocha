@@ -475,10 +475,10 @@ let cUser = null, cProfile = null, currentAdminTab = 'partidos';
 // ===== INIT =====
 async function init() {
   const { data: { session } } = await sb.auth.getSession();
-  if (session) { await loadProfile(session.user); showApp(); }
+  if (session) { await loadProfile(session.user); }
   else showAuth();
   sb.auth.onAuthStateChange(async (ev, session) => {
-    if (ev === 'SIGNED_IN') { await loadProfile(session.user); showApp(); }
+    if (ev === 'SIGNED_IN') { await loadProfile(session.user); }
     else if (ev === 'SIGNED_OUT') showAuth();
   });
 }
@@ -487,6 +487,26 @@ async function loadProfile(user) {
   cUser = user;
   const { data } = await sb.from('profiles').select('*').eq('id', user.id).single();
   cProfile = data;
+  if (cProfile?.suspendido) { showSuspendido(); return; }
+  showApp();
+}
+
+function showSuspendido() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'none';
+  let s = document.getElementById('suspendido-screen');
+  if (!s) {
+    s = document.createElement('div');
+    s.id = 'suspendido-screen';
+    s.style.cssText = 'min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:16px';
+    s.innerHTML = `
+      <svg viewBox="0 0 540.97 540.97" xmlns="http://www.w3.org/2000/svg" style="height:80px;width:auto;opacity:.4"><g><path fill="#fff" d="M113.9,335.98h-57.29v-131h83.49v54.32c0,7.68-3.14,14.32-8.21,18.86h8.21v32.14c0,15.37-9.43,25.68-26.2,25.68ZM96.95,269.26h1.22c1.05,0,1.57-.87,1.57-2.45v-38.6h-2.79v41.05ZM98.18,312.58c1.05,0,1.57-1.4,1.57-2.97v-17.64h-2.79v20.61h1.22Z"/><path fill="#fff" d="M142.54,230.66c0-15.37,9.43-25.68,26.03-25.68h57.47v105.32c0,15.37-9.43,25.68-26.2,25.68h-57.29v-105.32ZM184.11,312.4c1.05,0,1.57-1.4,1.57-2.97v-81.05h-1.22c-1.05,0-1.57,1.57-1.57,3.14v80.87h1.22Z"/><path fill="#fff" d="M228.48,230.66c0-15.37,9.43-25.68,26.03-25.68h57.47v79.3h-40.35v-55.89h-1.22c-1.05,0-1.57,1.57-1.57,3.14v80.87h1.22c1.05,0,1.57-1.4,1.57-2.97v-22.36h40.35v23.23c0,15.37-9.43,25.68-26.2,25.68h-57.29v-105.32Z"/><path fill="#fff" d="M357.73,308.91h-2.8v27.07h-40.35v-131h40.35v82.09h2.8v-82.09h40.35v131h-40.35v-27.07Z"/><path fill="#fff" d="M444.01,309.78h-2.8v26.2h-40.35v-131h83.49v131h-40.35v-26.2ZM441.22,287.08h2.8v-58.69h-2.8v58.69Z"/></g></svg>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:.04em;color:#fff">Cuenta suspendida</div>
+      <div style="font-size:15px;color:var(--text-dim);text-align:center;max-width:320px;line-height:1.6">Tu cuenta fue suspendida. Contactá al administrador para más información.</div>
+      <button onclick="doLogout()" style="margin-top:8px;padding:10px 24px;background:none;border:1px solid var(--border2);color:var(--muted);font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:.06em;cursor:pointer;border-radius:var(--r2)">Salir</button>`;
+    document.body.appendChild(s);
+  }
+  s.style.display = 'flex';
 }
 
 // ===== AUTH =====
