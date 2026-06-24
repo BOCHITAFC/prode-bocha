@@ -105,8 +105,8 @@ select option{background:#1a1a1a}
 
 /* TABLA POSICIONES */
 .tabla{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);overflow:hidden}
-.tabla-head{display:grid;grid-template-columns:44px 1fr 72px 72px 72px;padding:10px 20px;background:var(--surface2);border-bottom:1px solid var(--border2);font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-.tabla-row{display:grid;grid-template-columns:44px 1fr 72px 72px 72px;padding:13px 20px;border-bottom:1px solid var(--border);align-items:center;transition:background .15s}
+.tabla-head{display:grid;grid-template-columns:44px 1fr 72px 64px 64px 64px 64px;padding:10px 20px;background:var(--surface2);border-bottom:1px solid var(--border2);font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.tabla-row{display:grid;grid-template-columns:44px 1fr 72px 64px 64px 64px 64px;padding:13px 20px;border-bottom:1px solid var(--border);align-items:center;transition:background .15s}
 .tabla-row:last-child{border-bottom:none}
 .tabla-row:hover{background:var(--surface2)}
 .tabla-row.me{background:var(--lime-dim2)}
@@ -260,8 +260,7 @@ select option{background:#1a1a1a}
   .p-centro{flex-direction:row;flex-wrap:wrap;justify-content:center;min-width:auto}
   .perfil-grid{grid-template-columns:1fr}
   .tabla-head,.tabla-row{grid-template-columns:38px 1fr 60px}
-  .tabla-head>*:nth-child(4),.tabla-row>*:nth-child(4),
-  .tabla-head>*:nth-child(5),.tabla-row>*:nth-child(5){display:none}
+  .tabla-head>*:nth-child(n+4),.tabla-row>*:nth-child(n+4){display:none}
   .header-nav{display:none}
   .app-content{padding:20px 16px}
 }
@@ -639,7 +638,7 @@ async function renderPosiciones() {
   const { data } = await sb.from('tabla_posiciones').select('*');
   if (!data?.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">🏆</div><div class="empty-txt">Sin posiciones aún</div></div>'; return; }
   c.innerHTML = `<div class="tabla">
-    <div class="tabla-head"><div>#</div><div>Jugador</div><div style="text-align:center">PTS</div><div style="text-align:center">Exactos</div><div style="text-align:center">Pronos</div></div>
+    <div class="tabla-head"><div>#</div><div>Jugador</div><div style="text-align:center;color:var(--lime)">PTS</div><div style="text-align:center">Exactos</div><div style="text-align:center">D/G</div><div style="text-align:center">Aciertos</div><div style="text-align:center">Pronos</div></div>
     ${data.map((u,i) => `
       <div class="tabla-row pos-${i+1} ${cProfile?.id===u.id?'me':''}">
         <div class="pos-num">${i+1}</div>
@@ -649,6 +648,8 @@ async function renderPosiciones() {
         </div>
         <div class="pts-big">${u.puntos_total}</div>
         <div class="num-cell">${u.aciertos_exactos}</div>
+        <div class="num-cell">${u.diferencia_goles}</div>
+        <div class="num-cell">${u.aciertos_total}</div>
         <div class="num-cell">${u.pronosticos_realizados}</div>
       </div>`).join('')}
   </div>`;
