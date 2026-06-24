@@ -121,6 +121,27 @@ select option{background:#1a1a1a}
 .pts-big{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--lime);text-align:center}
 .num-cell{font-size:14px;color:var(--text-dim);text-align:center}
 
+/* PODIO */
+.podio{display:flex;align-items:flex-end;justify-content:center;gap:0;margin-top:32px;padding:0 12px}
+.podio-lugar{display:flex;flex-direction:column;align-items:center;flex:1;max-width:160px}
+.podio-avatar{border-radius:50%;object-fit:cover;border:3px solid var(--border2);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;color:var(--lime);overflow:hidden;flex-shrink:0}
+.podio-avatar img{width:100%;height:100%;object-fit:cover}
+.podio-alias{font-family:'Bebas Neue',sans-serif;letter-spacing:.04em;margin-top:8px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.podio-pts{font-family:'Bebas Neue',sans-serif;color:var(--lime);text-align:center;line-height:1}
+.podio-bloque{width:100%;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;letter-spacing:.1em;margin-top:10px}
+.podio-1 .podio-avatar{width:80px;height:80px;font-size:26px;border-color:var(--lime)}
+.podio-1 .podio-alias{font-size:18px}
+.podio-1 .podio-pts{font-size:28px}
+.podio-1 .podio-bloque{height:90px;background:linear-gradient(180deg,rgba(190,242,100,.18) 0%,rgba(190,242,100,.06) 100%);border:1px solid rgba(190,242,100,.3);font-size:40px;color:var(--lime)}
+.podio-2 .podio-avatar{width:64px;height:64px;font-size:20px;border-color:#ccc}
+.podio-2 .podio-alias{font-size:15px;color:#ccc}
+.podio-2 .podio-pts{font-size:22px;color:#ccc}
+.podio-2 .podio-bloque{height:60px;background:linear-gradient(180deg,rgba(200,200,200,.12) 0%,rgba(200,200,200,.04) 100%);border:1px solid rgba(200,200,200,.2);font-size:30px;color:#ccc}
+.podio-3 .podio-avatar{width:56px;height:56px;font-size:18px;border-color:#cd7f32}
+.podio-3 .podio-alias{font-size:13px;color:#cd7f32}
+.podio-3 .podio-pts{font-size:19px;color:#cd7f32}
+.podio-3 .podio-bloque{height:40px;background:linear-gradient(180deg,rgba(205,127,50,.12) 0%,rgba(205,127,50,.04) 100%);border:1px solid rgba(205,127,50,.2);font-size:24px;color:#cd7f32}
+
 /* FIXTURE */
 .jornada-sep{font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:.15em;color:var(--muted);text-transform:uppercase;margin:28px 0 10px;display:flex;align-items:center;gap:12px}
 .jornada-sep::before{content:'';flex:1;height:1px;background:var(--border2)}
@@ -637,6 +658,22 @@ async function renderPosiciones() {
   const c = document.getElementById('tabla-cont');
   const { data } = await sb.from('tabla_posiciones').select('*');
   if (!data?.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">🏆</div><div class="empty-txt">Sin posiciones aún</div></div>'; return; }
+  const podioAvatar = (u, cls) => {
+    const initials = h(u.alias||'?').slice(0,2).toUpperCase();
+    return `<div class="podio-lugar ${cls}">
+      <div class="podio-avatar">${u.avatar_url?`<img src="${u.avatar_url}" alt="">`:initials}</div>
+      <div class="podio-alias">${h(u.alias)}</div>
+      <div class="podio-pts">${u.puntos_total} pts</div>
+      <div class="podio-bloque">${cls==='podio-1'?'1°':cls==='podio-2'?'2°':'3°'}</div>
+    </div>`;
+  };
+  const p1 = data[0], p2 = data[1], p3 = data[2];
+  const podioHtml = (p1||p2||p3) ? `<div class="podio">
+    ${p2 ? podioAvatar(p2,'podio-2') : ''}
+    ${p1 ? podioAvatar(p1,'podio-1') : ''}
+    ${p3 ? podioAvatar(p3,'podio-3') : ''}
+  </div>` : '';
+
   c.innerHTML = `<div class="tabla">
     <div class="tabla-head"><div>#</div><div>Jugador</div><div style="text-align:center;color:var(--lime)">PTS</div><div style="text-align:center">Exactos</div><div style="text-align:center">D/G</div><div style="text-align:center">Aciertos</div><div style="text-align:center">Pronos</div></div>
     ${data.map((u,i) => `
@@ -652,7 +689,7 @@ async function renderPosiciones() {
         <div class="num-cell">${u.aciertos_total}</div>
         <div class="num-cell">${u.pronosticos_realizados}</div>
       </div>`).join('')}
-  </div>`;
+  </div>${podioHtml}`;
 }
 
 // ===== FIXTURE =====
