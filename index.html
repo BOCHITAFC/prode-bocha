@@ -767,13 +767,20 @@ async function renderFixture() {
   const { data: pronos } = await sb.from('pronosticos').select('*').eq('user_id', cUser.id);
   const pm = {}; (pronos||[]).forEach(p => pm[p.partido_id] = p);
   _cardIndex = 0;
-  const byJKeys = [];
-  const byJ = {};
-  partidos.forEach(p => { const j = p.jornada||'—'; if(!byJ[j]) { byJ[j]=[]; byJKeys.push(j); } byJ[j].push(p); });
+  const grupoKeys = [];
+  const grupos = {};
+  partidos.forEach(p => {
+    // Para liga/mundial agrupar por jornada; para copas (libertadores/sudamericana) agrupar por competición
+    const esCup = p.competicion === 'libertadores' || p.competicion === 'sudamericana';
+    const key = esCup ? `comp:${p.competicion}` : `fecha:${p.jornada||'—'}`;
+    if (!grupos[key]) { grupos[key] = { partidos: [], label: '' }; grupoKeys.push(key); }
+    grupos[key].partidos.push(p);
+    grupos[key].label = esCup ? (COMP_LABELS[p.competicion] || p.competicion) : `Fecha ${p.jornada||'—'}`;
+  });
   let html = '';
-  byJKeys.forEach(j => {
-    html += `<div class="jornada-sep">Fecha ${h(j)}</div>`;
-    byJ[j].forEach(p => { html += buildPartidoCard(p, pm[p.id]); });
+  grupoKeys.forEach(k => {
+    html += `<div class="jornada-sep">${h(grupos[k].label)}</div>`;
+    grupos[k].partidos.forEach(p => { html += buildPartidoCard(p, pm[p.id]); });
   });
   c.innerHTML = html;
   c.querySelectorAll('.anim-enter').forEach(el => el.addEventListener('animationend', () => el.classList.remove('anim-enter'), { once: true }));
