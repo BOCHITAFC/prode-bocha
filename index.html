@@ -574,7 +574,7 @@ function patchPartidoCard(p) {
 
   if (estadoEl) {
     if (p.estado === 'en_juego') {
-      estadoEl.textContent = p.minuto ? `${p.minuto}'` : '● EN JUEGO';
+      estadoEl.textContent = '● EN VIVO';
       estadoEl.className = 'estado-badge estado-en-juego';
     } else if (p.estado === 'finalizado') {
       // Si estamos en PRÓXIMOS, sacar la card sin re-render
@@ -751,8 +751,7 @@ function buildPartidoCard(p, prono) {
       pronoHtml = `<span class="prono-badge ${cls}">⚽ ${prono.goles_local}-${prono.goles_visitante} · ${pts!==null?pts+' pts':'?'}</span>`;
     }
   } else if (p.estado === 'en_juego') {
-    const minStr = p.minuto ? `${p.minuto}'` : '● EN JUEGO';
-    estadoHtml = `<span class="estado-badge estado-en-juego">${minStr}</span>`;
+    estadoHtml = `<span class="estado-badge estado-en-juego">● EN VIVO</span>`;
     centroHtml = `<div class="score-display"><span class="score-big">${p.goles_local??'0'}</span><span class="score-dash">-</span><span class="score-big">${p.goles_visitante??'0'}</span></div>`;
     if (prono) pronoHtml = `<span class="prono-badge" style="color:var(--muted);font-size:11px">Mi pronóstico: ${prono.goles_local}-${prono.goles_visitante}</span>`;
   } else {
