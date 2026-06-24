@@ -179,7 +179,16 @@ Deno.serve(async (req) => {
           visitante: mapGoles(game.teams?.[1]?.goals),
         }
 
-        const { error } = await supabase.from('partidos').upsert({
+        // Buscar partido existente por (local, visitante, competicion, fecha_hora)
+        const { data: existente } = await supabase.from('partidos')
+          .select('id')
+          .eq('equipo_local_id', localEq.id)
+          .eq('equipo_visitante_id', visEq.id)
+          .eq('competicion', competicion)
+          .eq('fecha_hora', fechaHora)
+          .maybeSingle()
+
+        const payload = {
           equipo_local_id: localEq.id,
           equipo_visitante_id: visEq.id,
           fecha_hora: fechaHora,
@@ -190,7 +199,11 @@ Deno.serve(async (req) => {
           goles_visitante: golesVis,
           minuto: estado === 'en_juego' ? minuto : null,
           goleadores,
-        }, { onConflict: 'equipo_local_id,equipo_visitante_id,jornada' })
+        }
+
+        const { error } = existente
+          ? await supabase.from('partidos').update(payload).eq('id', existente.id)
+          : await supabase.from('partidos').insert(payload)
 
         if (error) { console.error('upsert error:', error); skipped++ }
         else upserted++
