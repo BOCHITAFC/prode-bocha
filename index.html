@@ -680,12 +680,13 @@ async function renderFixture() {
   const { data: pronos } = await sb.from('pronosticos').select('*').eq('user_id', cUser.id);
   const pm = {}; (pronos||[]).forEach(p => pm[p.partido_id] = p);
   _cardIndex = 0;
+  const byJKeys = [];
   const byJ = {};
-  partidos.forEach(p => { const j = p.jornada||'—'; if(!byJ[j]) byJ[j]=[]; byJ[j].push(p); });
+  partidos.forEach(p => { const j = p.jornada||'—'; if(!byJ[j]) { byJ[j]=[]; byJKeys.push(j); } byJ[j].push(p); });
   let html = '';
-  Object.entries(byJ).forEach(([j,ps]) => {
+  byJKeys.forEach(j => {
     html += `<div class="jornada-sep">Fecha ${h(j)}</div>`;
-    ps.forEach(p => { html += buildPartidoCard(p, pm[p.id]); });
+    byJ[j].forEach(p => { html += buildPartidoCard(p, pm[p.id]); });
   });
   c.innerHTML = html;
   c.querySelectorAll('.anim-enter').forEach(el => el.addEventListener('animationend', () => el.classList.remove('anim-enter'), { once: true }));

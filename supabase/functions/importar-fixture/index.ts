@@ -47,10 +47,33 @@ Deno.serve(async (req) => {
     const data = JSON.parse(match[1])
     const filters: any[] = data?.props?.pageProps?.data?.games?.filters || []
 
-    // Para el mundial importamos TODAS las fechas disponibles con partidos
-    const rounds = competicion === 'mundial'
-      ? filters.filter((f: any) => f.games && Array.isArray(f.games) && f.games.length > 0)
-      : [filters.find((f: any) => f.games && Array.isArray(f.games) && f.games.length > 0)].filter(Boolean)
+    // Extraer el código de liga de la URL (ej: "hc" de /league/liga-profesional/hc)
+    const leagueCode = pageUrl.split('/').pop() || ''
+
+    // Obtener rounds con sus keys — para el mundial todos los que tienen key, para liga el "latest"
+    const filtersWithKey = filters.filter((f: any) => f.key && f.key !== 'latest')
+    const roundsToFetch = competicion === 'mundial'
+      ? filtersWithKey
+      : filtersWithKey.slice(-1) // Última fecha disponible
+
+    if (roundsToFetch.length === 0) throw new Error('No hay fechas disponibles en este momento')
+
+    // Fetch fresh game data for each round via API (evita el caché del SSR)
+    const rounds: Array<{ name: string; key: string; games: any[] }> = []
+    for (const f of roundsToFetch) {
+      const apiUrl = `https://api.promiedos.com.ar/league/games/${leagueCode}/${f.key}`
+      const apiRes = await fetch(apiUrl, {
+        headers: {
+          'Accept': 'application/json',
+          'Origin': 'https://www.promiedos.com.ar',
+          'Referer': pageUrl,
+        }
+      })
+      if (!apiRes.ok) continue
+      const apiData = await apiRes.json()
+      const games: any[] = apiData?.games || []
+      if (games.length > 0) rounds.push({ name: f.name, key: f.key, games })
+    }
 
     if (rounds.length === 0) throw new Error('No hay partidos disponibles en este momento')
 
@@ -61,7 +84,7 @@ Deno.serve(async (req) => {
 
     for (const round of rounds) {
       const games: any[] = round.games
-      const roundName: string = round.name || round.title || round.label || round.id || 'Fecha'
+      const roundName: string = round.games?.[0]?.stage_round_name || round.name || 'Fecha'
       const roundNum = parseInt(roundName.replace(/\D/g, '')) || null
 
       for (const game of games) {
