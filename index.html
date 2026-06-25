@@ -1538,7 +1538,7 @@ function fmtFecha(iso) {
   const meses = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
   const dia = dias[d.getDay()];
   const fecha = `${d.getDate()} ${meses[d.getMonth()]}`;
-  const hora = d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+  const hora = d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false});
   return `${dia} ${fecha} · ${hora} hs`;
 }
 function updateHdrAvatar() {
