@@ -597,6 +597,10 @@ function startAutoSync() {
           (data||[]).forEach(patchPartidoCard);
         }
       }
+      // Si está viendo posiciones, re-render para reflejar puntos en juego
+      if (document.getElementById('nav-posiciones')?.classList.contains('active')) {
+        renderPosiciones();
+      }
     } catch {}
   };
   tick(); // disparar al toque al cargar
@@ -744,13 +748,40 @@ function showView(view) {
 }
 
 // ===== POSICIONES =====
+function calcPtsLocal(pl, pv, rl, rv, cfg) {
+  if (rl == null || rv == null) return 0;
+  if (rl === rv) {
+    if (pl === rl && pv === rv) return cfg.pts_empate_exacto;
+    if (pl === pv) return cfg.pts_empate;
+    return 0;
+  }
+  if (pl === rl && pv === rv) return cfg.pts_exacto;
+  if ((pl - pv) === (rl - rv)) return cfg.pts_diferencia;
+  if ((pl > pv && rl > rv) || (pl < pv && rl < rv)) return cfg.pts_ganador;
+  return 0;
+}
+
 async function renderPosiciones() {
   const c = document.getElementById('tabla-cont');
-  const [{ data }, { data: ediciones }] = await Promise.all([
+  const [{ data }, { data: ediciones }, { data: cfgRows }, { data: enJuego }] = await Promise.all([
     sb.from('tabla_posiciones').select('*'),
-    sb.from('ediciones').select('campeon_user_id, fecha_finalizada')
+    sb.from('ediciones').select('campeon_user_id, fecha_finalizada'),
+    sb.from('config').select('key, value'),
+    sb.from('pronosticos').select('user_id, goles_local, goles_visitante, partidos!inner(estado, goles_local, goles_visitante)').eq('partidos.estado', 'en_juego'),
   ]);
-  if (!data?.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">🏆</div><div class="empty-txt">Sin posiciones aún</div></div>'; return; }
+  const cfg = {}; (cfgRows||[]).forEach(r => cfg[r.key] = parseInt(r.value) || 0);
+  // Sumar puntos en juego por user
+  const enJuegoPorUser = {};
+  (enJuego||[]).forEach(pr => {
+    const p = pr.partidos;
+    if (p?.goles_local == null || p?.goles_visitante == null) return;
+    const pts = calcPtsLocal(pr.goles_local, pr.goles_visitante, p.goles_local, p.goles_visitante, cfg);
+    enJuegoPorUser[pr.user_id] = (enJuegoPorUser[pr.user_id] || 0) + pts;
+  });
+  // Reordenar tabla incluyendo puntos en juego
+  const dataConTotal = (data||[]).map(u => ({ ...u, en_juego: enJuegoPorUser[u.id]||0, puntos_finales_mas_juego: u.puntos_total + (enJuegoPorUser[u.id]||0) }));
+  dataConTotal.sort((a,b) => b.puntos_finales_mas_juego - a.puntos_finales_mas_juego || b.aciertos_exactos - a.aciertos_exactos);
+  if (!dataConTotal.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">🏆</div><div class="empty-txt">Sin posiciones aún</div></div>'; return; }
   const trofeosPorUser = {};
   (ediciones||[]).forEach(e => { if(e.campeon_user_id) trofeosPorUser[e.campeon_user_id] = (trofeosPorUser[e.campeon_user_id]||0) + 1; });
   const ultimoCampeon = (ediciones||[]).slice().sort((a,b) => new Date(b.fecha_finalizada) - new Date(a.fecha_finalizada))[0]?.campeon_user_id;
@@ -772,7 +803,7 @@ async function renderPosiciones() {
       <div class="podio-bloque">${cls==='podio-1'?'1°':cls==='podio-2'?'2°':'3°'}</div>
     </div>`;
   };
-  const p1 = data[0], p2 = data[1], p3 = data[2];
+  const p1 = dataConTotal[0], p2 = dataConTotal[1], p3 = dataConTotal[2];
   const podioHtml = (p1||p2||p3) ? `<div class="podio">
     ${p2 ? podioAvatar(p2,'podio-2') : ''}
     ${p1 ? podioAvatar(p1,'podio-1') : ''}
@@ -781,14 +812,14 @@ async function renderPosiciones() {
 
   c.innerHTML = `<div class="tabla">
     <div class="tabla-head"><div>#</div><div>Jugador</div><div style="text-align:center;color:var(--lime)">PTS</div><div style="text-align:center">Exactos</div><div style="text-align:center">D/G</div><div style="text-align:center">Aciertos</div><div style="text-align:center">Pronos</div></div>
-    ${data.map((u,i) => `
+    ${dataConTotal.map((u,i) => `
       <div class="tabla-row pos-${i+1} ${cProfile?.id===u.id?'me':''}">
         <div class="pos-num">${i+1}</div>
         <div class="user-cell">
           <div class="mini-avatar">${u.avatar_url?`<img src="${u.avatar_url}" alt="">`:h(u.alias||'?').slice(0,2).toUpperCase()}</div>
           <span class="alias-txt">${h(u.alias)}${trofeoHtml(u.id)}${cProfile?.id===u.id?' <span style="font-size:11px;color:var(--lime)">(vos)</span>':''}</span>
         </div>
-        <div class="pts-big">${u.puntos_total}</div>
+        <div class="pts-big">${u.puntos_total}${u.en_juego>0?` <span style="font-size:13px;color:#ffcc33;font-family:'Bebas Neue',sans-serif">+${u.en_juego}</span>`:''}</div>
         <div class="num-cell">${u.aciertos_exactos}</div>
         <div class="num-cell">${u.diferencia_goles}</div>
         <div class="num-cell">${u.aciertos_total}</div>
