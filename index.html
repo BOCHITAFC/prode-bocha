@@ -583,16 +583,16 @@ async function autoImportFixture() {
 
 function startAutoSync() {
   if (_autoSyncInterval) clearInterval(_autoSyncInterval);
-  _autoSyncInterval = setInterval(async () => {
-    const hayEnVivo = document.querySelector('.estado-badge.estado-en-juego');
-    if (!hayEnVivo) return;
+  const headers = { 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' };
+  const tick = async () => {
     try {
-      const headers = { 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' };
       await Promise.all(['mundial','liga','libertadores','sudamericana'].map(liga =>
         fetch(`${SB_URL}/functions/v1/sync-livescores`, { method:'POST', headers, body: JSON.stringify({ liga }) })
       ));
     } catch {}
-  }, 90000); // cada 90 segundos
+  };
+  tick(); // disparar al toque al cargar
+  _autoSyncInterval = setInterval(tick, 90000); // y cada 90 segundos
 }
 
 function showApp() {
