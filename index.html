@@ -592,7 +592,7 @@ function startAutoSync() {
     } catch {}
   };
   tick(); // disparar al toque al cargar
-  _autoSyncInterval = setInterval(tick, 90000); // y cada 90 segundos
+  _autoSyncInterval = setInterval(tick, 30000); // y cada 30 segundos
 
   // Refrescar minuto local de las cards en vivo cada 30 seg
   setInterval(() => {
