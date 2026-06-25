@@ -593,6 +593,15 @@ function startAutoSync() {
   };
   tick(); // disparar al toque al cargar
   _autoSyncInterval = setInterval(tick, 90000); // y cada 90 segundos
+
+  // Refrescar minuto local de las cards en vivo cada 30 seg
+  setInterval(() => {
+    document.querySelectorAll('.partido-card.en-juego').forEach(card => {
+      const fh = card.dataset.fh;
+      const badge = card.querySelector('.estado-badge');
+      if (badge && fh) badge.textContent = minutoEnVivo(fh) || '● EN VIVO';
+    });
+  }, 30000);
 }
 
 function showApp() {
@@ -618,6 +627,16 @@ function startRealtimePartidos() {
     .subscribe();
 }
 
+function minutoEnVivo(fechaHora) {
+  if (!fechaHora) return null;
+  const diff = Math.floor((Date.now() - new Date(fechaHora).getTime()) / 60000);
+  if (diff < 0) return null;
+  if (diff <= 45) return diff + "' MIN";
+  if (diff < 60) return 'ENTRETIEMPO';
+  if (diff <= 105) return (diff - 15) + "' MIN";
+  return "FT";
+}
+
 function patchPartidoCard(p) {
   const card = document.querySelector(`.partido-card[data-pid="${p.id}"]`);
   if (!card) return; // no está visible en esta tab, ignorar
@@ -633,8 +652,9 @@ function patchPartidoCard(p) {
 
   if (estadoEl) {
     if (p.estado === 'en_juego') {
-      estadoEl.textContent = p.minuto ? p.minuto + ' min' : '● EN VIVO';
+      estadoEl.textContent = minutoEnVivo(p.fecha_hora) || '● EN VIVO';
       estadoEl.className = 'estado-badge estado-en-juego';
+      card.classList.add('en-juego');
     } else if (p.estado === 'finalizado') {
       // Si estamos en PRÓXIMOS, sacar la card sin re-render
       if (_fixtureTab !== 'jugados') {
@@ -833,7 +853,7 @@ function buildPartidoCard(p, prono) {
       pronoHtml = `<span class="prono-badge ${cls}">⚽ ${prono.goles_local}-${prono.goles_visitante} · ${pts!==null?pts+' pts':'?'}</span>`;
     }
   } else if (p.estado === 'en_juego') {
-    estadoHtml = `<span class="estado-badge estado-en-juego">${p.minuto ? p.minuto + ' min' : '● EN VIVO'}</span>`;
+    estadoHtml = `<span class="estado-badge estado-en-juego">${minutoEnVivo(p.fecha_hora) || '● EN VIVO'}</span>`;
     centroHtml = `<div class="score-display"><span class="score-big">${p.goles_local??'0'}</span><span class="score-dash">-</span><span class="score-big">${p.goles_visitante??'0'}</span></div>`;
     if (prono) pronoHtml = `<span class="prono-badge" style="color:var(--muted);font-size:11px">Mi pronóstico: ${prono.goles_local}-${prono.goles_visitante}</span>`;
   } else {
@@ -894,7 +914,7 @@ function buildPartidoCard(p, prono) {
   const clickAttr = p.estado === 'finalizado' ? ` onclick="togglePronos(this,${p.id})"` : '';
   const compLabel = COMP_LABELS[p.competicion] || '';
   const compBadge = compLabel ? `<div class="comp-badge comp-${p.competicion}">${compLabel}</div>` : '';
-  return `<div class="partido-card anim-enter ${p.estado==='finalizado'?'finalizado':''} ${p.estado==='en_juego'?'en-juego':''}" data-pid="${p.id}" style="animation-delay:${delay}ms;${p.estado==='finalizado'&&prono?'grid-template-columns:1fr auto 1fr auto':''}"${clickAttr}>
+  return `<div class="partido-card anim-enter ${p.estado==='finalizado'?'finalizado':''} ${p.estado==='en_juego'?'en-juego':''}" data-pid="${p.id}" data-fh="${p.fecha_hora||''}" style="animation-delay:${delay}ms;${p.estado==='finalizado'&&prono?'grid-template-columns:1fr auto 1fr auto':''}"${clickAttr}>
     ${compBadge}
     <div class="p-equipo">${lImg}<span class="p-nombre">${h(p.local?.nombre||'Local')}</span></div>
     <div class="p-centro">${estadoHtml}${centroHtml}${pronoHtml}</div>
