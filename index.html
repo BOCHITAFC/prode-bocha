@@ -652,6 +652,15 @@ function patchPartidoCard(p) {
   const card = document.querySelector(`.partido-card[data-pid="${p.id}"]`);
   if (!card) return; // no está visible en esta tab, ignorar
 
+  // Si cambió el estado entre pendiente/en_juego/finalizado, el layout es distinto → re-render completo
+  const eraEnJuego = card.classList.contains('en-juego');
+  const eraFinalizado = card.classList.contains('finalizado');
+  const eraPendiente = !eraEnJuego && !eraFinalizado;
+  if ((p.estado === 'en_juego' && !eraEnJuego) || (p.estado === 'finalizado' && !eraFinalizado)) {
+    renderFixture();
+    return;
+  }
+
   const scoreEl = card.querySelector('.score-display');
   const estadoEl = card.querySelector('.estado-badge');
 
