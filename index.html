@@ -1242,10 +1242,18 @@ async function editarEscudo(id, urlActual) {
 async function toggleEquipo(id, on) {
   const grid = document.querySelector('#admin-equipos-grid .equipos-grid');
   if (grid) { grid.style.transition='opacity .18s ease, transform .18s ease'; grid.style.opacity='0'; grid.style.transform='translateY(6px)'; }
-  const { error } = await sb.from('equipos').update({ habilitado:on }).eq('id',id);
+  const { data: eq, error } = await sb.from('equipos').update({ habilitado:on }).eq('id',id).select('competiciones').single();
   if (error) { toast(error.message,'error'); if(grid){grid.style.opacity='1';grid.style.transform='translateY(0)';} return; }
   await new Promise(r=>setTimeout(r,180));
   renderAdminEquipos();
+  // Si recién se activó, re-importar fixture de las competiciones que juega para traer sus partidos al toque
+  if (on && eq?.competiciones?.length) {
+    const headers = { 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' };
+    eq.competiciones.forEach(comp => {
+      fetch(`${SB_URL}/functions/v1/importar-fixture`, { method:'POST', headers, body: JSON.stringify({ competicion: comp }) }).catch(()=>{});
+    });
+    toast('Trayendo partidos del equipo...', 'info');
+  }
 }
 
 // -- USUARIOS --

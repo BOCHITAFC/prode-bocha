@@ -5,141 +5,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// ESPN name → nombre en BD
-const ESPN_TO_DB: Record<string, string> = {
-  // Américas
-  'Argentina': 'Argentina',
-  'Brazil': 'Brasil',
-  'Uruguay': 'Uruguay',
-  'Colombia': 'Colombia',
-  'Chile': 'Chile',
-  'Ecuador': 'Ecuador',
-  'Peru': 'Perú',
-  'Bolivia': 'Bolivia',
-  'Paraguay': 'Paraguay',
-  'Venezuela': 'Venezuela',
-  'Mexico': 'México',
-  'United States': 'Estados Unidos',
-  'Canada': 'Canadá',
-  'Costa Rica': 'Costa Rica',
-  'Panama': 'Panamá',
-  'Honduras': 'Honduras',
-  'Jamaica': 'Jamaica',
-  'Haiti': 'Haiti',
-  'Curacao': 'Curazao',
-  'Cuba': 'Cuba',
-  // Europa
-  'Germany': 'Alemania',
-  'France': 'Francia',
-  'Spain': 'España',
-  'Italy': 'Italia',
-  'Portugal': 'Portugal',
-  'Netherlands': 'Países Bajos',
-  'England': 'Inglaterra',
-  'Switzerland': 'Suiza',
-  'Croatia': 'Croacia',
-  'Denmark': 'Dinamarca',
-  'Belgium': 'Bélgica',
-  'Poland': 'Polonia',
-  'Serbia': 'Serbia',
-  'Hungary': 'Hungría',
-  'Slovakia': 'Eslovaquia',
-  'Austria': 'Austria',
-  'Scotland': 'Escocia',
-  'Norway': 'Noruega',
-  'Sweden': 'Suecia',
-  'Romania': 'Rumania',
-  'Czechia': 'Republica Checa',
-  'Czech Republic': 'Republica Checa',
-  'Bosnia-Herzegovina': 'Bosnia Herzegovina',
-  'Bosnia and Herzegovina': 'Bosnia Herzegovina',
-  // África
-  'Morocco': 'Marruecos',
-  'Senegal': 'Senegal',
-  'Nigeria': 'Nigeria',
-  'Cameroon': 'Camerún',
-  'Ghana': 'Ghana',
-  'Egypt': 'Egipto',
-  'Algeria': 'Argelia',
-  'South Africa': 'Sudafrica',
-  'Ivory Coast': 'Costa de Marfil',
-  "Côte d'Ivoire": 'Costa de Marfil',
-  'Cape Verde': 'Cabo Verde',
-  'DR Congo': 'RD Congo',
-  'Tunisia': 'Tunez',
-  // Asia / Oceanía
-  'Japan': 'Japón',
-  'South Korea': 'Corea del Sur',
-  'Australia': 'Australia',
-  'Saudi Arabia': 'Arabia Saudita',
-  'Iran': 'Irán',
-  'Qatar': 'Qatar',
-  'Jordan': 'Jordania',
-  'Iraq': 'Irak',
-  'Uzbekistan': 'Uzbekistan',
-  'New Zealand': 'Nueva Zelanda',
-  // AFA clubes
-  'Boca Juniors': 'Boca Juniors',
-  'River Plate': 'River Plate',
-  'Racing Club': 'Racing Club',
-  'Independiente': 'Independiente',
-  'San Lorenzo': 'San Lorenzo',
-  'Huracán': 'Huracán',
-  'Huracan': 'Huracán',
-  'Estudiantes': 'Estudiantes',
-  'Talleres': 'Talleres',
-  'Belgrano': 'Belgrano',
-  'Rosario Central': 'Rosario Central',
-  "Newell's Old Boys": "Newell's Old Boys",
-  'Lanús': 'Lanús',
-  'Lanus': 'Lanús',
-  'Banfield': 'Banfield',
-  'Tigre': 'Tigre',
-  'Platense': 'Platense',
-  'Vélez Sársfield': 'Vélez Sársfield',
-  'Velez Sarsfield': 'Vélez Sársfield',
-  'Defensa y Justicia': 'Defensa y Justicia',
-  'Barracas Central': 'Barracas Central',
-  'Aldosivi': 'Aldosivi',
-  'Argentinos Juniors': 'Argentinos Juniors',
-  'Atlético Tucumán': 'Atlético Tucumán',
-  'Atletico Tucuman': 'Atlético Tucumán',
-  'Central Córdoba': 'Central Córdoba',
-  'Central Cordoba': 'Central Córdoba',
-  'Gimnasia La Plata': 'Gimnasia LP',
-  'Gimnasia y Esgrima La Plata': 'Gimnasia LP',
-  'Independiente Rivadavia': 'Independiente Rivadavia',
-  'Instituto': 'Instituto',
-  'Riestra': 'Riestra',
-  'Sarmiento': 'Sarmiento',
-  'Unión': 'Unión',
-  'Union': 'Unión',
+const URLS: Record<string, string> = {
+  liga: 'https://www.promiedos.com.ar/league/liga-profesional/hc',
+  mundial: 'https://www.promiedos.com.ar/league/fifa-world-cup/fjda',
+  libertadores: 'https://www.promiedos.com.ar/league/libertadores/bac',
+  sudamericana: 'https://www.promiedos.com.ar/league/conmebol-sudamericana/dij',
 }
 
-const ESPN_LEAGUES: Record<string, string> = {
-  mundial: 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard',
-  cwc: 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.cwc/scoreboard',
-  liga: 'https://site.api.espn.com/apis/site/v2/sports/soccer/arg.1/scoreboard',
-  libertadores: 'https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.libertadores/scoreboard',
-  sudamericana: 'https://site.api.espn.com/apis/site/v2/sports/soccer/conmebol.sudamericana/scoreboard',
+function norm(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim()
 }
 
-function mapName(espnName: string): string | null {
-  return ESPN_TO_DB[espnName] ?? null
-}
-
-function mapStatus(espnStatus: string): string {
-  if (espnStatus === 'STATUS_IN_PROGRESS') return 'en_juego'
-  if (espnStatus === 'STATUS_HALFTIME') return 'en_juego'
-  if (espnStatus === 'STATUS_FULL_TIME' || espnStatus === 'STATUS_FINAL') return 'finalizado'
-  if (espnStatus === 'STATUS_SCHEDULED') return 'pendiente'
-  return 'pendiente'
+function matchEquipo(name: string, equipos: any[]): any | null {
+  const n = norm(name)
+  return equipos.find(e => norm(e.nombre) === n) || null
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
     const supabase = createClient(
@@ -147,103 +31,117 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Aceptar param "liga": "mundial" | "cwc" | "liga" (default: "mundial")
     let liga = 'mundial'
     try {
       const body = await req.json()
-      if (body?.liga && ESPN_LEAGUES[body.liga]) liga = body.liga
+      if (body?.liga && URLS[body.liga]) liga = body.liga
     } catch {}
 
-    const espnUrl = ESPN_LEAGUES[liga]
-    const espnRes = await fetch(espnUrl)
-    if (!espnRes.ok) throw new Error(`ESPN fetch failed: ${espnRes.status}`)
-    const espnData = await espnRes.json()
+    const pageUrl = URLS[liga]
+    const res = await fetch(pageUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      }
+    })
+    if (!res.ok) throw new Error(`Promiedos no disponible: ${res.status}`)
+    const html = await res.text()
+    const match = html.match(/id="__NEXT_DATA__"[^>]+>(\{[\s\S]+?\})<\/script>/)
+    if (!match) throw new Error('No se encontró fixture')
 
-    const events = espnData.events ?? []
+    const data = JSON.parse(match[1])
+    const filters: any[] = data?.props?.pageProps?.data?.games?.filters || []
+    const leagueCode = pageUrl.split('/').pop() || ''
+
+    // Buscar la ronda "latest" (activa)
+    const filtersWithKey = filters.filter((f: any) => f.key && f.key !== 'latest')
+    if (!filtersWithKey.length) throw new Error('Sin fechas disponibles')
+
+    // Para Mundial/Cups: traer todas las rondas con partidos próximos
+    // Para Liga: solo la última
+    const roundsToFetch = liga === 'liga' ? filtersWithKey.slice(-1) : filtersWithKey
+
+    const { data: equipos } = await supabase.from('equipos').select('id, nombre')
+    if (!equipos) throw new Error('No se pudieron leer equipos')
+
     const resultados: { partido: string; actualizado: boolean; motivo?: string }[] = []
+    let actualizados = 0
 
-    for (const event of events) {
-      const comp = event.competitions?.[0]
-      if (!comp) continue
+    for (const f of roundsToFetch) {
+      const apiUrl = `https://api.promiedos.com.ar/league/games/${leagueCode}/${f.key}`
+      const apiRes = await fetch(apiUrl, {
+        headers: { 'Accept': 'application/json', 'Origin': 'https://www.promiedos.com.ar', 'Referer': pageUrl }
+      })
+      if (!apiRes.ok) continue
+      const apiData = await apiRes.json()
+      const games: any[] = apiData?.games || []
 
-      const competitors = comp.competitors ?? []
-      // ESPN: competitors[0] = home, competitors[1] = away
-      const homeComp = competitors.find((c: any) => c.homeAway === 'home') ?? competitors[0]
-      const awayComp = competitors.find((c: any) => c.homeAway === 'away') ?? competitors[1]
+      for (const game of games) {
+        const homeName = game.teams?.[0]?.name
+        const awayName = game.teams?.[1]?.name
+        if (!homeName || !awayName) continue
+        const localEq = matchEquipo(homeName, equipos)
+        const visEq = matchEquipo(awayName, equipos)
+        if (!localEq || !visEq) continue
 
-      const espnHome = homeComp?.team?.displayName
-      const espnAway = awayComp?.team?.displayName
-      const dbHome = mapName(espnHome)
-      const dbAway = mapName(espnAway)
+        // Solo procesar partidos que están en juego o recién finalizados (para no machacar BD con partidos viejos)
+        const statusEnum = game.status?.enum
+        let estado = 'pendiente'
+        if (statusEnum === 2) estado = 'en_juego'
+        else if (statusEnum === 3 || statusEnum === 4) estado = 'finalizado'
+        if (estado === 'pendiente') continue
 
-      const nombre = `${espnHome} vs ${espnAway}`
+        const scores = game.scores
+        const golesLocal = (scores && scores[0] != null) ? Number(scores[0]) : null
+        const golesVis = (scores && scores[1] != null) ? Number(scores[1]) : null
+        const rawMin = game.game_time
+        const minuto = estado === 'en_juego' && rawMin != null && rawMin !== '' ? String(rawMin) : null
 
-      if (!dbHome || !dbAway) {
-        resultados.push({ partido: nombre, actualizado: false, motivo: `Sin mapeo: ${!dbHome ? espnHome : espnAway}` })
-        continue
-      }
+        const mapGoles = (goals: any[]) => (goals || []).map(g => ({
+          nombre: g.player_sname || g.player_name,
+          minuto: g.time_to_display,
+        }))
+        const goleadores = {
+          local: mapGoles(game.teams?.[0]?.goals),
+          visitante: mapGoles(game.teams?.[1]?.goals),
+        }
 
-      const homeScore = parseInt(homeComp?.score ?? '0', 10)
-      const awayScore = parseInt(awayComp?.score ?? '0', 10)
-      const espnStatusName = event.status?.type?.name ?? ''
-      const estado = mapStatus(espnStatusName)
-      const minuto = event.status?.displayClock ?? null
+        // Buscar partido existente
+        const { data: partidos } = await supabase
+          .from('partidos').select('id')
+          .eq('equipo_local_id', localEq.id)
+          .eq('equipo_visitante_id', visEq.id)
+          .eq('competicion', liga)
+          .limit(1)
 
-      // Buscar equipos en BD
-      const { data: equipos } = await supabase
-        .from('equipos')
-        .select('id, nombre')
-        .in('nombre', [dbHome, dbAway])
+        if (!partidos || partidos.length === 0) {
+          resultados.push({ partido: `${homeName} vs ${awayName}`, actualizado: false, motivo: 'partido no encontrado' })
+          continue
+        }
 
-      const homeEq = equipos?.find((e: any) => e.nombre === dbHome)
-      const awayEq = equipos?.find((e: any) => e.nombre === dbAway)
+        const { error } = await supabase.from('partidos').update({
+          goles_local: golesLocal,
+          goles_visitante: golesVis,
+          estado,
+          minuto,
+          goleadores,
+        }).eq('id', partidos[0].id)
 
-      if (!homeEq || !awayEq) {
-        resultados.push({ partido: nombre, actualizado: false, motivo: `Equipo no encontrado en BD` })
-        continue
-      }
-
-      // Buscar partido de hoy
-      const hoy = new Date().toISOString().slice(0, 10)
-      const { data: partidos } = await supabase
-        .from('partidos')
-        .select('id, estado')
-        .eq('equipo_local_id', homeEq.id)
-        .eq('equipo_visitante_id', awayEq.id)
-        .gte('fecha', hoy + 'T00:00:00')
-        .lte('fecha', hoy + 'T23:59:59')
-        .limit(1)
-
-      if (!partidos || partidos.length === 0) {
-        resultados.push({ partido: nombre, actualizado: false, motivo: 'Partido no encontrado en BD para hoy' })
-        continue
-      }
-
-      const partido = partidos[0]
-
-      // No sobreescribir si ya está finalizado en BD y ESPN también dice finalizado
-      const updateData: any = { goles_local: homeScore, goles_visitante: awayScore, estado }
-      if (estado === 'en_juego' && minuto) updateData.minuto = minuto
-
-      const { error } = await supabase
-        .from('partidos')
-        .update(updateData)
-        .eq('id', partido.id)
-
-      if (error) {
-        resultados.push({ partido: nombre, actualizado: false, motivo: error.message })
-      } else {
-        resultados.push({ partido: nombre, actualizado: true })
+        if (error) {
+          resultados.push({ partido: `${homeName} vs ${awayName}`, actualizado: false, motivo: error.message })
+        } else {
+          actualizados++
+          resultados.push({ partido: `${homeName} vs ${awayName}`, actualizado: true })
+        }
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, liga, partidos_procesados: resultados }), {
+    return new Response(JSON.stringify({ ok: true, liga, actualizados, resultados }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
     return new Response(JSON.stringify({ ok: false, error: String(err) }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })
