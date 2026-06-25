@@ -387,6 +387,7 @@ select option{background:#1a1a1a}
         <button class="a-tab" onclick="adminTab('equipos')" id="at-equipos">Equipos</button>
         <button class="a-tab" onclick="adminTab('usuarios')" id="at-usuarios">Usuarios</button>
         <button class="a-tab" onclick="adminTab('config')" id="at-config">Puntos</button>
+        <button class="a-tab" onclick="adminTab('ediciones')" id="at-ediciones">Ediciones</button>
       </div>
       <div class="a-tab-content active" id="ac-partidos">
         <div class="section-header">
@@ -415,6 +416,9 @@ select option{background:#1a1a1a}
       </div>
       <div class="a-tab-content" id="ac-config">
         <div id="admin-config-cont"></div>
+      </div>
+      <div class="a-tab-content" id="ac-ediciones">
+        <div id="admin-ediciones-cont"></div>
       </div>
     </div>
 
@@ -705,8 +709,18 @@ function showView(view) {
 // ===== POSICIONES =====
 async function renderPosiciones() {
   const c = document.getElementById('tabla-cont');
-  const { data } = await sb.from('tabla_posiciones').select('*');
+  const [{ data }, { data: ediciones }] = await Promise.all([
+    sb.from('tabla_posiciones').select('*'),
+    sb.from('ediciones').select('campeon_user_id')
+  ]);
   if (!data?.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">🏆</div><div class="empty-txt">Sin posiciones aún</div></div>'; return; }
+  const trofeosPorUser = {};
+  (ediciones||[]).forEach(e => { if(e.campeon_user_id) trofeosPorUser[e.campeon_user_id] = (trofeosPorUser[e.campeon_user_id]||0) + 1; });
+  const trofeoHtml = (uid) => {
+    const n = trofeosPorUser[uid] || 0;
+    if (!n) return '';
+    return ` <span title="${n} trofeo${n>1?'s':''}" style="color:#ffcc33;font-size:13px">${'🏆'.repeat(n)}</span>`;
+  };
   const podioAvatar = (u, cls) => {
     const initials = h(u.alias||'?').slice(0,2).toUpperCase();
     return `<div class="podio-lugar ${cls}">
@@ -730,7 +744,7 @@ async function renderPosiciones() {
         <div class="pos-num">${i+1}</div>
         <div class="user-cell">
           <div class="mini-avatar">${u.avatar_url?`<img src="${u.avatar_url}" alt="">`:h(u.alias||'?').slice(0,2).toUpperCase()}</div>
-          <span class="alias-txt">${h(u.alias)}${cProfile?.id===u.id?' <span style="font-size:11px;color:var(--lime)">(vos)</span>':''}</span>
+          <span class="alias-txt">${h(u.alias)}${trofeoHtml(u.id)}${cProfile?.id===u.id?' <span style="font-size:11px;color:var(--lime)">(vos)</span>':''}</span>
         </div>
         <div class="pts-big">${u.puntos_total}</div>
         <div class="num-cell">${u.aciertos_exactos}</div>
@@ -936,11 +950,18 @@ async function renderPerfil() {
   if (!cProfile) { c.innerHTML='<div class="loading-txt">CARGANDO...</div>'; return; }
   const { nombre, apellido, alias, detalle, avatar_url } = cProfile;
   const av = avatar_url ? `<img src="${avatar_url}" alt="">` : h(alias||'?').slice(0,2).toUpperCase();
+  const { data: misTrofeos } = await sb.from('ediciones').select('nombre, puntos, fecha_finalizada').eq('campeon_user_id', cUser.id).order('fecha_finalizada', { ascending: false });
+  const trofeosHtml = (misTrofeos||[]).length ? `
+    <div style="margin-top:14px;width:100%">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;text-align:center">Trofeos</div>
+      ${misTrofeos.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-radius:var(--r2);margin-bottom:6px;font-size:12px"><span style="font-size:16px">🏆</span><div style="flex:1"><div style="font-weight:600">${h(t.nombre)}</div><div style="color:var(--muted);font-size:11px">${t.puntos} pts</div></div></div>`).join('')}
+    </div>` : '';
   c.innerHTML = `<div class="perfil-grid">
     <div class="avatar-area">
       <div class="avatar-big" onclick="document.getElementById('av-in').click()">${av}</div>
       <input type="file" id="av-in" accept="image/*" style="display:none" onchange="uploadAvatar(this)">
       <button class="btn btn-ghost btn-sm" onclick="document.getElementById('av-in').click()">Cambiar foto</button>
+      ${trofeosHtml}
     </div>
     <form class="perfil-form" onsubmit="savePerfil(event)">
       <div class="field-row">
@@ -1001,6 +1022,7 @@ function adminTab(tab) {
   else if(tab==='equipos') renderAdminEquipos();
   else if(tab==='usuarios') renderAdminUsuarios();
   else if(tab==='config') renderAdminConfig();
+  else if(tab==='ediciones') renderAdminEdiciones();
 }
 
 // -- PARTIDOS --
@@ -1251,6 +1273,47 @@ async function renderAdminConfig() {
   c.innerHTML = `<p style="font-size:13px;color:var(--text-dim);margin-bottom:20px">Puntos por tipo de acierto.</p>
     ${items.map(i=>`<div class="cfg-row"><span class="cfg-label">${i.label}</span><input type="number" class="cfg-input score-in" id="cfg-${i.key}" value="${cfg[i.key]||0}" min="0" max="99"></div>`).join('')}
     <button class="btn btn-primary" style="margin-top:16px" onclick="saveConfig()">Guardar</button>`;
+}
+
+async function renderAdminEdiciones() {
+  const c = document.getElementById('admin-ediciones-cont');
+  const { data: ediciones } = await sb.from('ediciones')
+    .select('*, campeon:profiles!campeon_user_id(alias,avatar_url)')
+    .order('fecha_finalizada', { ascending: false });
+
+  const lista = (ediciones||[]).map(e => `
+    <div style="display:flex;align-items:center;gap:14px;padding:12px 14px;background:var(--surface2);border-radius:var(--r2);margin-bottom:8px">
+      <div style="font-size:22px">🏆</div>
+      <div style="flex:1">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:.05em">${h(e.nombre)}</div>
+        <div style="font-size:12px;color:var(--lime)">Campeón: ${h(e.campeon?.alias||'?')} · ${e.puntos} pts · ${new Date(e.fecha_finalizada).toLocaleDateString('es-AR')}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="borrarEdicion(${e.id},'${h(e.nombre)}')" style="color:var(--danger);border-color:var(--danger)">×</button>
+    </div>`).join('');
+
+  c.innerHTML = `
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:20px">Cerrar la edición actual le da el trofeo al líder y reinicia los puntos a 0.</p>
+    <button class="btn btn-primary" onclick="finalizarEdicion()" style="margin-bottom:24px">🏆 Finalizar edición actual</button>
+    <div style="font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Ediciones cerradas</div>
+    ${lista || '<div class="empty"><div class="empty-txt">Aún no hay ediciones cerradas</div></div>'}`;
+}
+
+async function finalizarEdicion() {
+  const nombre = prompt('Nombre de la edición (ej: "Clausura 2026"):');
+  if (!nombre || !nombre.trim()) return;
+  if (!confirm(`¿Cerrar "${nombre}"? Se va a otorgar el trofeo al líder y se reiniciarán todos los puntos.`)) return;
+  const { data, error } = await sb.rpc('finalizar_edicion', { p_nombre: nombre.trim() });
+  if (error) { toast('Error: ' + error.message, 'error'); return; }
+  toast(`🏆 Campeón: ${data.campeon} con ${data.puntos} pts`, 'success');
+  renderAdminEdiciones();
+}
+
+async function borrarEdicion(id, nombre) {
+  if (!confirm(`¿Borrar la edición "${nombre}"? Solo se elimina el registro, no se restauran los puntos.`)) return;
+  const { error } = await sb.from('ediciones').delete().eq('id', id);
+  if (error) { toast(error.message, 'error'); return; }
+  toast('Edición borrada', 'success');
+  renderAdminEdiciones();
 }
 
 async function saveConfig() {
