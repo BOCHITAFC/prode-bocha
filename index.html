@@ -346,6 +346,7 @@ select option{background:#1a1a1a}
     <nav class="header-nav">
       <button class="nav-btn active" onclick="showView('posiciones')" id="nav-posiciones">Posiciones</button>
       <button class="nav-btn" onclick="showView('fixture')" id="nav-fixture">Fixture</button>
+      <button class="nav-btn" onclick="showView('ediciones')" id="nav-ediciones">Ediciones</button>
       <button class="nav-btn" onclick="showView('perfil')" id="nav-perfil">Mi Perfil</button>
       <button class="nav-btn" onclick="showView('admin')" id="nav-admin" style="display:none">Admin</button>
     </nav>
@@ -371,6 +372,12 @@ select option{background:#1a1a1a}
         <button id="ftab-jugados" onclick="setFixtureTab('jugados')" style="background:none;border:none;padding:10px 20px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:.1em;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px">JUGADOS</button>
       </div>
       <div id="fixture-cont"><div class="loading-txt">CARGANDO...</div></div>
+    </div>
+
+    <!-- EDICIONES -->
+    <div class="view" id="view-ediciones">
+      <div class="section-header"><h1 class="section-title">Ediciones</h1></div>
+      <div id="ediciones-cont"></div>
     </div>
 
     <!-- PERFIL -->
@@ -702,6 +709,7 @@ function showView(view) {
   localStorage.setItem('prode-view', view);
   if (view==='posiciones') renderPosiciones();
   else if (view==='fixture') renderFixture();
+  else if (view==='ediciones') renderEdiciones();
   else if (view==='perfil') renderPerfil();
   else if (view==='admin') renderAdmin();
 }
@@ -942,6 +950,29 @@ function autoSaveProno(pid) {
       else { statusEl.style.color='var(--lime)'; statusEl.textContent='✓ Guardado'; }
     }
   }, 800);
+}
+
+// ===== EDICIONES (vista usuario) =====
+async function renderEdiciones() {
+  const c = document.getElementById('ediciones-cont');
+  const { data: ediciones } = await sb.from('ediciones')
+    .select('*, campeon:profiles!campeon_user_id(alias,avatar_url)')
+    .order('fecha_finalizada', { ascending: false });
+  if (!ediciones?.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">🏆</div><div class="empty-txt">Aún no hay ediciones cerradas</div></div>'; return; }
+  c.innerHTML = ediciones.map(e => {
+    const av = e.campeon?.avatar_url
+      ? `<img src="${e.campeon.avatar_url}" alt="" style="width:48px;height:48px;border-radius:50%;object-fit:cover">`
+      : `<div style="width:48px;height:48px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:18px">${h(e.campeon?.alias||'?').slice(0,2).toUpperCase()}</div>`;
+    return `<div style="display:flex;align-items:center;gap:16px;padding:16px 20px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);margin-bottom:10px">
+      <div style="font-size:32px">🏆</div>
+      ${av}
+      <div style="flex:1">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.04em">${h(e.nombre)}</div>
+        <div style="font-size:13px;color:var(--lime);margin-top:2px">Campeón: ${h(e.campeon?.alias||'?')} · ${e.puntos} pts</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${new Date(e.fecha_finalizada).toLocaleDateString('es-AR',{day:'numeric',month:'long',year:'numeric'})}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ===== PERFIL =====
