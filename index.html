@@ -719,15 +719,20 @@ async function renderPosiciones() {
   const c = document.getElementById('tabla-cont');
   const [{ data }, { data: ediciones }] = await Promise.all([
     sb.from('tabla_posiciones').select('*'),
-    sb.from('ediciones').select('campeon_user_id')
+    sb.from('ediciones').select('campeon_user_id, fecha_finalizada')
   ]);
   if (!data?.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">🏆</div><div class="empty-txt">Sin posiciones aún</div></div>'; return; }
   const trofeosPorUser = {};
   (ediciones||[]).forEach(e => { if(e.campeon_user_id) trofeosPorUser[e.campeon_user_id] = (trofeosPorUser[e.campeon_user_id]||0) + 1; });
+  const ultimoCampeon = (ediciones||[]).slice().sort((a,b) => new Date(b.fecha_finalizada) - new Date(a.fecha_finalizada))[0]?.campeon_user_id;
   const trofeoHtml = (uid) => {
     const n = trofeosPorUser[uid] || 0;
     if (!n) return '';
-    return ` <span title="${n} trofeo${n>1?'s':''}" style="color:#ffcc33;font-size:13px">${'🏆'.repeat(n)}</span>`;
+    const esActual = uid === ultimoCampeon;
+    const style = esActual
+      ? 'color:#ffcc33;font-size:13px'
+      : 'font-size:13px;filter:grayscale(1);opacity:.45';
+    return ` <span title="${n} trofeo${n>1?'s':''}${esActual?' (campeón actual)':''}" style="${style}">${'🏆'.repeat(n)}</span>`;
   };
   const podioAvatar = (u, cls) => {
     const initials = h(u.alias||'?').slice(0,2).toUpperCase();
