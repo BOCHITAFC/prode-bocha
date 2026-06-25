@@ -589,6 +589,14 @@ function startAutoSync() {
       await Promise.all(['mundial','liga','libertadores','sudamericana'].map(liga =>
         fetch(`${SB_URL}/functions/v1/sync-livescores`, { method:'POST', headers, body: JSON.stringify({ liga }) })
       ));
+      // Fallback: si Realtime no dispara, releemos los partidos visibles y patcheamos cada card
+      if (document.getElementById('nav-fixture')?.classList.contains('active')) {
+        const ids = [...document.querySelectorAll('.partido-card[data-pid]')].map(c => Number(c.dataset.pid));
+        if (ids.length) {
+          const { data } = await sb.from('partidos').select('*').in('id', ids);
+          (data||[]).forEach(patchPartidoCard);
+        }
+      }
     } catch {}
   };
   tick(); // disparar al toque al cargar
