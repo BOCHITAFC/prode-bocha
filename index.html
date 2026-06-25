@@ -628,15 +628,15 @@ function startRealtimePartidos() {
 }
 
 function minutoEnVivo(fechaHora, promiedosMin) {
-  // Si Promiedos nos dio un dato textual (ET, 45+1, FT, etc.) lo usamos directo
-  if (promiedosMin != null && promiedosMin !== '' && String(promiedosMin).trim()) {
+  // Solo confiar en Promiedos para estados textuales (ET, FT, stoppage time)
+  // El minuto numérico de su API queda cacheado/lento → calcular local
+  if (promiedosMin != null && promiedosMin !== '') {
     const v = String(promiedosMin).trim().toUpperCase();
     if (v === 'ET' || v === 'HT') return 'ENTRETIEMPO';
     if (v === 'FT') return 'FT';
-    if (/^\d/.test(v)) return v.endsWith("'") ? v + ' MIN' : v + "' MIN";
-    return v;
+    if (v.includes('+')) return v.replace(/'$/, '') + "' MIN"; // 45+1
   }
-  // Fallback: calcular local desde la hora de inicio
+  // Calcular local desde la hora de inicio
   if (!fechaHora) return null;
   const diff = Math.floor((Date.now() - new Date(fechaHora).getTime()) / 60000);
   if (diff < 0) return null;
