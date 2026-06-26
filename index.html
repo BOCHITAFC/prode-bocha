@@ -677,6 +677,12 @@ function startRealtimePartidos() {
         patchPartidoCard(payload.new);
       }
     })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, (payload) => {
+      // Si cambió el gif_url o avatar, refrescar tabla si está visible
+      if (document.getElementById('nav-posiciones')?.classList.contains('active')) {
+        renderPosiciones();
+      }
+    })
     .subscribe();
 }
 
