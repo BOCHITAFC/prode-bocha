@@ -123,25 +123,52 @@ select option{background:#1a1a1a}
 .num-cell{font-size:14px;color:var(--text-dim);text-align:center}
 
 /* PODIO */
-.podio{display:flex;align-items:flex-end;justify-content:center;gap:0;margin-top:32px;padding:0 12px}
-.podio-lugar{display:flex;flex-direction:column;align-items:center;flex:1;max-width:160px}
-.podio-avatar{border-radius:50%;object-fit:cover;border:3px solid var(--border2);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;color:var(--lime);overflow:hidden;flex-shrink:0}
+.podio{display:flex;align-items:flex-end;justify-content:center;gap:8px;margin-top:32px;padding:0 12px}
+.podio-lugar{display:flex;flex-direction:column;align-items:center;flex:1;max-width:200px;position:relative}
+.podio-avatar{border-radius:50%;object-fit:cover;border:3px solid var(--border2);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;color:var(--lime);overflow:hidden;flex-shrink:0;z-index:2;position:relative}
 .podio-avatar img{width:100%;height:100%;object-fit:cover}
-.podio-alias{font-family:'Bebas Neue',sans-serif;letter-spacing:.04em;margin-top:8px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.podio-pts{font-family:'Bebas Neue',sans-serif;color:var(--lime);text-align:center;line-height:1}
-.podio-bloque{width:100%;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;letter-spacing:.1em;margin-top:10px}
-.podio-1 .podio-avatar{width:80px;height:80px;font-size:26px;border-color:var(--lime)}
-.podio-1 .podio-alias{font-size:18px}
-.podio-1 .podio-pts{font-size:28px}
-.podio-1 .podio-bloque{height:90px;background:linear-gradient(180deg,rgba(190,242,100,.18) 0%,rgba(190,242,100,.06) 100%);border:1px solid rgba(190,242,100,.3);font-size:40px;color:var(--lime)}
-.podio-2 .podio-avatar{width:64px;height:64px;font-size:20px;border-color:#ccc}
-.podio-2 .podio-alias{font-size:15px;color:#ccc}
-.podio-2 .podio-pts{font-size:22px;color:#ccc}
-.podio-2 .podio-bloque{height:60px;background:linear-gradient(180deg,rgba(200,200,200,.12) 0%,rgba(200,200,200,.04) 100%);border:1px solid rgba(200,200,200,.2);font-size:30px;color:#ccc}
-.podio-3 .podio-avatar{width:56px;height:56px;font-size:18px;border-color:#cd7f32}
-.podio-3 .podio-alias{font-size:13px;color:#cd7f32}
-.podio-3 .podio-pts{font-size:19px;color:#cd7f32}
-.podio-3 .podio-bloque{height:40px;background:linear-gradient(180deg,rgba(205,127,50,.12) 0%,rgba(205,127,50,.04) 100%);border:1px solid rgba(205,127,50,.2);font-size:24px;color:#cd7f32}
+.podio-gif{width:100%;aspect-ratio:16/10;border-radius:8px;overflow:hidden;margin-top:-12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;position:relative}
+.podio-gif img{width:100%;height:100%;object-fit:cover}
+.podio-gif.empty{display:none}
+.podio-gif-btn{position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:var(--r2);padding:4px 8px;font-size:11px;cursor:pointer;backdrop-filter:blur(4px);z-index:3}
+.gif-del-btn{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.65);border:none;color:#fff;border-radius:50%;width:24px;height:24px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);z-index:3;line-height:1;padding:0}
+.gif-del-btn:hover{background:rgba(255,53,53,.85)}
+.podio-bloque{width:100%;border-radius:8px 8px 0 0;display:flex;flex-direction:row;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;letter-spacing:.05em;margin-top:8px;padding:14px 12px;gap:10px}
+.podio-bloque .pos-num{font-size:36px;line-height:1;flex-shrink:0}
+.podio-bloque .pos-info{display:flex;flex-direction:column;align-items:flex-start;line-height:1;min-width:0}
+.podio-bloque .pos-alias{font-size:16px;letter-spacing:.06em;line-height:1.1;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.podio-bloque .pos-pts{font-size:13px;opacity:.8;line-height:1;margin-top:4px}
+.podio-1 .podio-avatar{width:70px;height:70px;font-size:22px;border-color:var(--lime)}
+.podio-1 .podio-bloque{min-height:110px;background:linear-gradient(180deg,rgba(190,242,100,.18) 0%,rgba(190,242,100,.06) 100%);border:1px solid rgba(190,242,100,.3);color:var(--lime)}
+.podio-1 .pos-num{color:var(--lime)}
+.podio-2 .podio-avatar{width:58px;height:58px;font-size:18px;border-color:#ccc}
+.podio-2 .podio-bloque{min-height:80px;background:linear-gradient(180deg,rgba(200,200,200,.12) 0%,rgba(200,200,200,.04) 100%);border:1px solid rgba(200,200,200,.2);color:#ccc}
+.podio-2 .pos-num{color:#ccc}
+.podio-3 .podio-avatar{width:52px;height:52px;font-size:16px;border-color:#cd7f32}
+.podio-3 .podio-bloque{min-height:60px;background:linear-gradient(180deg,rgba(205,127,50,.12) 0%,rgba(205,127,50,.04) 100%);border:1px solid rgba(205,127,50,.2);color:#cd7f32}
+.podio-3 .pos-num{color:#cd7f32}
+/* Banca */
+.banca{margin-top:32px;display:flex;justify-content:center;align-items:flex-end;gap:6px;padding:0 12px;flex-wrap:wrap;row-gap:24px}
+.banca-spot{position:relative;width:90px;height:120px;flex-shrink:0}
+.banca-seat{position:absolute;bottom:18px;left:0;right:0;width:100%;aspect-ratio:154.2/53.8;z-index:1}
+.banca-seat svg{width:100%;height:100%;display:block}
+.banca-avatar{position:absolute;left:50%;transform:translateX(-50%);bottom:38px;width:38px;height:38px;border-radius:50%;border:2px solid var(--border2);background:var(--surface2);overflow:hidden;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:14px;color:var(--lime);z-index:3}
+.banca-avatar img{width:100%;height:100%;object-fit:cover}
+.banca-gif{position:absolute;left:50%;transform:translateX(-50%);bottom:78px;width:80px;aspect-ratio:16/10;border-radius:6px;overflow:hidden;background:var(--surface2);z-index:2}
+.banca-gif img{width:100%;height:100%;object-fit:cover}
+.banca-gif.empty{display:none}
+.banca-line{position:absolute;bottom:0;left:0;right:0;font-family:'Bebas Neue',sans-serif;font-size:11px;color:var(--muted);text-align:center;letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.banca-line .pos{color:var(--text);margin-right:4px}
+.banca-spot.empty .banca-line{opacity:0;pointer-events:none}
+/* Modal GIF picker */
+.gif-modal{display:flex;flex-direction:column;max-width:640px;max-height:80vh;width:90vw}
+.gif-search{display:flex;gap:8px;margin-bottom:16px}
+.gif-search input{flex:1;padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r2);color:var(--text);font-size:14px}
+.gif-search input:focus{border-color:var(--lime);outline:none}
+.gif-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;overflow-y:auto;flex:1;padding-right:4px}
+.gif-grid img{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:6px;cursor:pointer;background:var(--surface2);transition:transform .15s}
+.gif-grid img:hover{transform:scale(1.03);outline:2px solid var(--lime)}
+.gif-loading{text-align:center;padding:40px;color:var(--muted);font-size:13px}
 
 /* FIXTURE */
 .jornada-sep{font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:.15em;color:var(--muted);text-transform:uppercase;margin:28px 0 10px;display:flex;align-items:center;gap:12px}
@@ -448,6 +475,20 @@ select option{background:#1a1a1a}
       <button class="btn btn-primary" id="btn-import-confirm" onclick="confirmImport()" style="display:none">Importar</button>
       <button class="btn btn-ghost" onclick="closeModal('modal-import')">Cancelar</button>
     </div>
+  </div>
+</div>
+
+
+<!-- MODAL: GIF picker -->
+<div class="modal-overlay" id="modal-gif">
+  <div class="modal gif-modal" style="position:relative">
+    <button onclick="closeModal('modal-gif')" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;line-height:1;padding:4px 8px" title="Cerrar">&times;</button>
+    <div class="modal-title">Elegir GIF</div>
+    <div class="gif-search">
+      <input type="text" id="gif-query" placeholder="Buscar GIFs..." oninput="onGifSearch(event)" autofocus>
+      <button class="btn btn-ghost btn-sm" onclick="removeGif()" title="Borrar mi GIF actual">🗑️</button>
+    </div>
+    <div class="gif-grid" id="gif-grid"></div>
   </div>
 </div>
 
@@ -803,21 +844,60 @@ async function renderPosiciones() {
       : 'font-size:13px;filter:grayscale(1);opacity:.45';
     return ` <span title="${n} trofeo${n>1?'s':''}${esActual?' (campeón actual)':''}" style="${style}">${'🏆'.repeat(n)}</span>`;
   };
-  const podioAvatar = (u, cls) => {
+  // Trae gif_url de todos los profiles (la vista tabla_posiciones no lo incluye)
+  const { data: profilesGifs } = await sb.from('profiles').select('id, gif_url');
+  const gifPorUser = {}; (profilesGifs||[]).forEach(p => gifPorUser[p.id] = p.gif_url);
+  dataConTotal.forEach(u => u.gif_url = gifPorUser[u.id]);
+
+  const podioAvatar = (u, cls, posLabel) => {
     const initials = h(u.alias||'?').slice(0,2).toUpperCase();
+    const esYo = cProfile?.id === u.id;
+    const totalPts = u.puntos_total + (u.en_juego||0);
+    const avatarClickable = esYo ? `onclick="openGifPicker()" style="cursor:pointer" title="${u.gif_url?'Cambiar tu GIF':'Elegir tu GIF'}"` : '';
+    const delBtn = esYo && u.gif_url ? `<button class="gif-del-btn" onclick="event.stopPropagation();removeGif()" title="Borrar GIF">🗑️</button>` : '';
+    const gifHtml = u.gif_url
+      ? `<div class="podio-gif"><img src="${h(u.gif_url)}" alt="">${delBtn}</div>`
+      : '';
     return `<div class="podio-lugar ${cls}">
-      <div class="podio-avatar">${u.avatar_url?`<img src="${u.avatar_url}" alt="">`:initials}</div>
-      <div class="podio-alias">${h(u.alias)}</div>
-      <div class="podio-pts">${u.puntos_total} pts</div>
-      <div class="podio-bloque">${cls==='podio-1'?'1°':cls==='podio-2'?'2°':'3°'}</div>
+      <div class="podio-avatar" ${avatarClickable}>${u.avatar_url?`<img src="${u.avatar_url}" alt="">`:initials}</div>
+      ${gifHtml}
+      <div class="podio-bloque">
+        <div class="pos-num">${posLabel}</div>
+        <div class="pos-info">
+          <div class="pos-alias">${h(u.alias)}</div>
+          <div class="pos-pts">${totalPts} PTS</div>
+        </div>
+      </div>
     </div>`;
   };
   const p1 = dataConTotal[0], p2 = dataConTotal[1], p3 = dataConTotal[2];
   const podioHtml = (p1||p2||p3) ? `<div class="podio">
-    ${p2 ? podioAvatar(p2,'podio-2') : ''}
-    ${p1 ? podioAvatar(p1,'podio-1') : ''}
-    ${p3 ? podioAvatar(p3,'podio-3') : ''}
+    ${p2 ? podioAvatar(p2,'podio-2','2°') : ''}
+    ${p1 ? podioAvatar(p1,'podio-1','1°') : ''}
+    ${p3 ? podioAvatar(p3,'podio-3','3°') : ''}
   </div>` : '';
+
+  // Banca: posiciones 4+
+  const banca = dataConTotal.slice(3);
+  const SEAT_SVG = `<svg class="banca-seat-svg" viewBox="0 0 154.2 53.8" xmlns="http://www.w3.org/2000/svg"><path d="M120.7,8.4c-29.1-9.9-58.2-9.9-87.3,0-6.5,2.2-10.8,8.3-10.8,15.2v29.2s108.9,0,108.9,0v-29.2c0-6.8-4.3-13-10.8-15.2Z" fill="#080808" stroke="#414141" stroke-width="2" stroke-miterlimit="10"/><path d="M5.6,31.3c4.1-1.2,8.3-1.2,12.4,0s4.6,3.3,4.6,6.2v15.3H1v-15.3c0-2.9,1.9-5.4,4.6-6.2Z" fill="#080808" stroke="#414141" stroke-width="2" stroke-miterlimit="10"/><path d="M136.2,31.3c4.1-1.2,8.3-1.2,12.4,0s4.6,3.3,4.6,6.2v15.3h-21.7v-15.3c0-2.9,1.9-5.4,4.6-6.2Z" fill="#080808" stroke="#414141" stroke-width="2" stroke-miterlimit="10"/></svg>`;
+  const bancaSpot = (u, i) => {
+    const initials = h(u.alias||'?').slice(0,2).toUpperCase();
+    const esYo = cProfile?.id === u.id;
+    const totalPts = u.puntos_total + (u.en_juego||0);
+    const avatarClickable = esYo ? `onclick="openGifPicker()" style="cursor:pointer" title="${u.gif_url?'Cambiar tu GIF':'Elegir tu GIF'}"` : '';
+    const delBtn = esYo && u.gif_url ? `<button class="gif-del-btn" onclick="event.stopPropagation();removeGif()" title="Borrar GIF">🗑️</button>` : '';
+    const gifHtml = u.gif_url ? `<div class="banca-gif"><img src="${h(u.gif_url)}" alt="">${delBtn}</div>` : '';
+    return `<div class="banca-spot">
+      ${gifHtml}
+      <div class="banca-avatar" ${avatarClickable}>${u.avatar_url?`<img src="${u.avatar_url}" alt="">`:initials}</div>
+      <div class="banca-seat">${SEAT_SVG}</div>
+      <div class="banca-line"><span class="pos">${i+4}°</span>${h(u.alias)} · ${totalPts}pts</div>
+    </div>`;
+  };
+  const bancaSeatVacio = () => `<div class="banca-spot empty"><div class="banca-seat">${SEAT_SVG}</div><div class="banca-line">·</div></div>`;
+  const bancaHtml = banca.length
+    ? `<div class="banca">${bancaSeatVacio()}${bancaSeatVacio()}${banca.map(bancaSpot).join('')}${bancaSeatVacio()}${bancaSeatVacio()}</div>`
+    : '';
 
   c.innerHTML = `<div class="tabla">
     <div class="tabla-head"><div>#</div><div>Jugador</div><div style="text-align:center;color:var(--lime)">PTS</div><div style="text-align:center">Exactos</div><div style="text-align:center">D/G</div><div style="text-align:center">Aciertos</div><div style="text-align:center">Pronos</div></div>
@@ -834,7 +914,61 @@ async function renderPosiciones() {
         <div class="num-cell">${u.aciertos_total}</div>
         <div class="num-cell">${u.pronosticos_realizados}</div>
       </div>`).join('')}
-  </div>${podioHtml}`;
+  </div>${podioHtml}${bancaHtml}`;
+}
+
+// ===== GIF PICKER (Giphy) =====
+const GIPHY_KEY = 'H7OpcXa8RnJ5Dji0KN1lZ3mIkVVwCW1W';
+
+function openGifPicker() {
+  document.getElementById('gif-query').value = '';
+  document.getElementById('gif-grid').innerHTML = '<div class="gif-loading">Cargando tendencias...</div>';
+  openModal('modal-gif');
+  loadGifs(); // sin query = trending
+}
+
+let _gifSearchTimer = null;
+function onGifSearch(e) {
+  clearTimeout(_gifSearchTimer);
+  _gifSearchTimer = setTimeout(() => loadGifs(e.target.value.trim()), 300);
+}
+
+async function loadGifs(query = '') {
+  const grid = document.getElementById('gif-grid');
+  grid.innerHTML = '<div class="gif-loading">Buscando...</div>';
+  const url = query
+    ? `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_KEY}&q=${encodeURIComponent(query)}&limit=30&rating=r`
+    : `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_KEY}&limit=30&rating=r`;
+  try {
+    const res = await fetch(url);
+    const json = await res.json();
+    const items = json.data || [];
+    if (!items.length) { grid.innerHTML = '<div class="gif-loading">Sin resultados</div>'; return; }
+    grid.innerHTML = items.map(g => {
+      const src = g.images?.fixed_width?.url || g.images?.original?.url || '';
+      return `<img src="${src}" alt="${h(g.title||'')}" onclick="selectGif('${src.replace(/'/g,"\\'")}')">`;
+    }).join('');
+  } catch (err) {
+    grid.innerHTML = '<div class="gif-loading">Error al cargar GIFs</div>';
+  }
+}
+
+async function selectGif(url) {
+  const { error } = await sb.from('profiles').update({ gif_url: url }).eq('id', cUser.id);
+  if (error) { toast(error.message, 'error'); return; }
+  cProfile.gif_url = url;
+  closeModal('modal-gif');
+  toast('GIF actualizado', 'success');
+  renderPosiciones();
+}
+
+async function removeGif() {
+  const { error } = await sb.from('profiles').update({ gif_url: null }).eq('id', cUser.id);
+  if (error) { toast(error.message, 'error'); return; }
+  cProfile.gif_url = null;
+  closeModal('modal-gif');
+  toast('GIF eliminado', 'success');
+  renderPosiciones();
 }
 
 // ===== FIXTURE =====
