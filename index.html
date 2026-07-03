@@ -622,12 +622,26 @@ async function autoImportFixture() {
   } catch {}
 }
 
+async function getLigasActivas() {
+  // Competencias con partidos en una ventana de ±24hs
+  const ahora = new Date();
+  const desde = new Date(ahora.getTime() - 24*60*60*1000).toISOString();
+  const hasta = new Date(ahora.getTime() + 24*60*60*1000).toISOString();
+  const { data } = await sb.from('partidos')
+    .select('competicion')
+    .gte('fecha_hora', desde)
+    .lte('fecha_hora', hasta);
+  return [...new Set((data||[]).map(p => p.competicion))];
+}
+
 function startAutoSync() {
   if (_autoSyncInterval) clearInterval(_autoSyncInterval);
   const headers = { 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' };
   const tick = async () => {
     try {
-      await Promise.all(['mundial','liga','libertadores','sudamericana'].map(liga =>
+      const ligas = await getLigasActivas();
+      if (!ligas.length) return; // no hay partidos hoy, no gastar
+      await Promise.all(ligas.map(liga =>
         fetch(`${SB_URL}/functions/v1/sync-livescores`, { method:'POST', headers, body: JSON.stringify({ liga }) })
       ));
       // Fallback: si Realtime no dispara, releemos los partidos visibles y patcheamos cada card
