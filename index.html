@@ -644,11 +644,13 @@ function startAutoSync() {
       await Promise.all(ligas.map(liga =>
         fetch(`${SB_URL}/functions/v1/sync-livescores`, { method:'POST', headers, body: JSON.stringify({ liga }) })
       ));
-      // Fallback: si Realtime no dispara, releemos los partidos visibles y patcheamos cada card
+      // Fallback: si Realtime no dispara, releemos SOLO los partidos en juego con campos mínimos
       if (document.getElementById('nav-fixture')?.classList.contains('active')) {
-        const ids = [...document.querySelectorAll('.partido-card[data-pid]')].map(c => Number(c.dataset.pid));
-        if (ids.length) {
-          const { data } = await sb.from('partidos').select('*').in('id', ids);
+        const enJuegoIds = [...document.querySelectorAll('.partido-card.en-juego[data-pid]')].map(c => Number(c.dataset.pid));
+        if (enJuegoIds.length) {
+          const { data } = await sb.from('partidos')
+            .select('id,estado,goles_local,goles_visitante,minuto,goleadores,fecha_hora')
+            .in('id', enJuegoIds);
           (data||[]).forEach(patchPartidoCard);
         }
       }
@@ -659,7 +661,10 @@ function startAutoSync() {
     } catch {}
   };
   tick(); // disparar al toque al cargar
-  _autoSyncInterval = setInterval(tick, 30000); // y cada 30 segundos
+  _autoSyncInterval = setInterval(() => {
+    if (document.hidden) return; // no sync si la pestaña no está visible
+    tick();
+  }, 60000); // cada 60 segundos
 
   // Refrescar minuto local de las cards en vivo cada 30 seg
   setInterval(() => {

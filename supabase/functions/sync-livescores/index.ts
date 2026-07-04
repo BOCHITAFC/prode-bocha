@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, liga, actualizados, resultados }), {
+    return new Response(JSON.stringify({ ok: true, actualizados }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
