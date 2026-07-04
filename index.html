@@ -623,10 +623,10 @@ async function autoImportFixture() {
 }
 
 async function getLigasActivas() {
-  // Competencias con partidos en una ventana de ±24hs
+  // Solo competencias con partidos entre 30min antes del kickoff y 3hs después
   const ahora = new Date();
-  const desde = new Date(ahora.getTime() - 24*60*60*1000).toISOString();
-  const hasta = new Date(ahora.getTime() + 24*60*60*1000).toISOString();
+  const desde = new Date(ahora.getTime() - 3*60*60*1000).toISOString(); // hasta 3hs atrás (partidos que pudieron haber terminado con prolongación)
+  const hasta = new Date(ahora.getTime() + 30*60*1000).toISOString(); // 30min al futuro
   const { data } = await sb.from('partidos')
     .select('competicion')
     .gte('fecha_hora', desde)
