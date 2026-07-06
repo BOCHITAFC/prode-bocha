@@ -635,6 +635,7 @@ async function getLigasActivas() {
 }
 
 function startAutoSync() {
+  return; // AUTO-SYNC APAGADO temporalmente para evitar egress. Reactivar después del 19 Jul.
   if (_autoSyncInterval) clearInterval(_autoSyncInterval);
   const headers = { 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' };
   const tick = async () => {
