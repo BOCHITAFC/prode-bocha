@@ -206,11 +206,10 @@ select option{background:#1a1a1a}
 .p-centro{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:110px}
 .p-fecha-txt{font-size:11px;color:var(--muted);letter-spacing:.04em;text-align:center;white-space:nowrap}
 .score-inputs{display:flex;align-items:center;gap:6px}
-.penal-check{display:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--border2);background:transparent;cursor:pointer;margin-top:6px;align-items:center;justify-content:center;transition:all .15s;color:var(--muted);font-size:11px;font-weight:700}
+.penal-check{display:none;width:42px;height:42px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r2);cursor:pointer;align-items:center;justify-content:center;transition:all .15s;color:var(--muted);font-size:20px;font-weight:700}
 .penal-check.visible{display:inline-flex}
 .penal-check.selected{background:var(--lime);border-color:var(--lime);color:#000}
-.penal-check:hover{border-color:var(--lime);color:var(--lime)}
-.penal-check.selected:hover{color:#000}
+.penal-check:hover:not(.selected){border-color:var(--lime);color:var(--lime)}
 .penal-hint{display:none;grid-column:1/-1;text-align:center;font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;padding:4px 0 0;margin-top:-4px}
 .penal-hint.visible{display:block}
 .score-in{width:42px;height:42px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r2);color:var(--white);font-family:'Bebas Neue',sans-serif;font-size:24px;text-align:center;padding:0;-moz-appearance:textfield;transition:border-color .15s}
@@ -1051,7 +1050,7 @@ async function renderFixture() {
 
 let _cardIndex = 0;
 
-function penalCheckHtml(p, prono, side, puedePredecir, pos) {
+function penalCheckHtml(p, prono, puedePredecir, pos) {
   if (!p.es_eliminatorio || !puedePredecir) return '';
   const teamId = pos === 'left' ? p.equipo_local_id : p.equipo_visitante_id;
   const glVal = parseInt(prono?.goles_local);
@@ -1119,9 +1118,11 @@ function buildPartidoCard(p, prono) {
     if (puedePredecir) {
       const gl = prono?.goles_local??'', gv = prono?.goles_visitante??'';
       centroHtml = `<div class="score-inputs">
+        ${penalCheckHtml(p, prono, puedePredecir, 'left')}
         <input type="number" class="score-in" id="sl-${p.id}" value="${gl}" min="0" max="30" placeholder="0" oninput="autoSaveProno(${p.id})">
         <span class="score-sep">-</span>
         <input type="number" class="score-in" id="sv-${p.id}" value="${gv}" min="0" max="30" placeholder="0" oninput="autoSaveProno(${p.id})">
+        ${penalCheckHtml(p, prono, puedePredecir, 'right')}
       </div>
       <span id="prono-status-${p.id}" style="font-size:11px;min-height:16px;display:block;color:var(--muted)">${prono?'✓ guardado':''}</span>`;
     } else if (!yaEmpezó) {
@@ -1174,9 +1175,9 @@ function buildPartidoCard(p, prono) {
   const compBadge = compLabel ? `<div class="comp-badge comp-${p.competicion}">${compLabel}</div>` : '';
   return `<div class="partido-card anim-enter ${p.estado==='finalizado'?'finalizado':''} ${p.estado==='en_juego'?'en-juego':''}" data-pid="${p.id}" data-fh="${p.fecha_hora||''}" data-min="${p.minuto||''}" data-min-at="${Date.now()}" style="animation-delay:${delay}ms;${p.estado==='finalizado'&&prono?'grid-template-columns:1fr auto 1fr auto':''}"${clickAttr}>
     ${compBadge}
-    <div class="p-equipo">${lImg}<span class="p-nombre">${h(p.local?.nombre||'Local')}</span>${penalCheckHtml(p, prono, p.local, puedePredecir, 'left')}</div>
+    <div class="p-equipo">${lImg}<span class="p-nombre">${h(p.local?.nombre||'Local')}</span></div>
     <div class="p-centro">${estadoHtml}${centroHtml}${pronoHtml}</div>
-    <div class="p-equipo right">${vImg}<span class="p-nombre">${h(p.visitante?.nombre||'Visitante')}</span>${penalCheckHtml(p, prono, p.visitante, puedePredecir, 'right')}</div>
+    <div class="p-equipo right">${vImg}<span class="p-nombre">${h(p.visitante?.nombre||'Visitante')}</span></div>
     ${penalHintHtml(p, prono, puedePredecir)}
     ${ptsCardHtml}
     ${goleadoresHtml}
