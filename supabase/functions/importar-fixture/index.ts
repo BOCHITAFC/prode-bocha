@@ -81,9 +81,12 @@ Deno.serve(async (req) => {
 
     // Obtener rounds con sus keys — para el mundial todos los que tienen key, para liga el "latest"
     const filtersWithKey = filters.filter((f: any) => f.key && f.key !== 'latest')
+    // Para Mundial traemos todas las rondas. Para ligas/copas usamos la ronda "latest" (fecha en curso)
+    // y si no existe, caemos a la última del array como fallback.
+    const latestFilter = filters.find((f: any) => f.key === 'latest')
     const roundsToFetch = competicion === 'mundial'
       ? filtersWithKey
-      : filtersWithKey.slice(-1) // Última fecha disponible
+      : (latestFilter ? [latestFilter] : filtersWithKey.slice(-1))
 
     if (roundsToFetch.length === 0) throw new Error('No hay fechas disponibles en este momento')
 

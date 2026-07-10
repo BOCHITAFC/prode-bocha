@@ -1034,10 +1034,11 @@ async function renderFixture() {
   partidos.forEach(p => {
     // Para liga/mundial agrupar por jornada; para copas (libertadores/sudamericana) agrupar por competición
     const esCup = p.competicion === 'libertadores' || p.competicion === 'sudamericana';
-    const key = esCup ? `comp:${p.competicion}` : `fecha:${p.jornada||'—'}`;
+    const key = esCup ? `comp:${p.competicion}` : `${p.competicion}:fecha:${p.jornada||'—'}`;
     if (!grupos[key]) { grupos[key] = { partidos: [], label: '' }; grupoKeys.push(key); }
     grupos[key].partidos.push(p);
-    grupos[key].label = esCup ? (COMP_LABELS[p.competicion] || p.competicion) : `Fecha ${p.jornada||'—'}`;
+    const compLabel = COMP_LABELS[p.competicion] || p.competicion;
+    grupos[key].label = esCup ? compLabel : `${compLabel} — Fecha ${p.jornada||'—'}`;
   });
   let html = '';
   grupoKeys.forEach(k => {
