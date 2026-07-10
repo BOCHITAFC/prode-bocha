@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
 
         // Buscar partido existente
         const { data: partidos } = await supabase
-          .from('partidos').select('id')
+          .from('partidos').select('id, es_eliminatorio')
           .eq('equipo_local_id', localEq.id)
           .eq('equipo_visitante_id', visEq.id)
           .eq('competicion', liga)
@@ -119,13 +119,28 @@ Deno.serve(async (req) => {
           continue
         }
 
-        const { error } = await supabase.from('partidos').update({
+        // Detectar ganador por penales (solo si finalizado + eliminatorio + score en penales)
+        let ganadorPenalesId: number | null = null
+        if (estado === 'finalizado' && partidos[0].es_eliminatorio) {
+          const penScores = game.penalty_scores || game.penalties
+          if (Array.isArray(penScores) && penScores[0] != null && penScores[1] != null) {
+            const penLocal = Number(penScores[0])
+            const penVis = Number(penScores[1])
+            if (penLocal > penVis) ganadorPenalesId = localEq.id
+            else if (penVis > penLocal) ganadorPenalesId = visEq.id
+          }
+        }
+
+        const updatePayload: any = {
           goles_local: golesLocal,
           goles_visitante: golesVis,
           estado,
           minuto,
           goleadores,
-        }).eq('id', partidos[0].id)
+        }
+        if (ganadorPenalesId != null) updatePayload.ganador_penales_id = ganadorPenalesId
+
+        const { error } = await supabase.from('partidos').update(updatePayload).eq('id', partidos[0].id)
 
         if (error) {
           resultados.push({ partido: `${homeName} vs ${awayName}`, actualizado: false, motivo: error.message })

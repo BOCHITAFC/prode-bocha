@@ -17,6 +17,17 @@ function slugify(s: string): string {
     .replace(/[^a-z0-9]+/g, '').slice(0, 50)
 }
 
+function esEliminatorio(roundName: string): boolean {
+  if (!roundName) return false
+  const n = roundName.toLowerCase().trim()
+  // Grupo: "Fecha 1", "Jornada 5", "Matchday 2", "Round 3"
+  if (/^(fecha|jornada|matchday|round\s*\d)/.test(n)) return false
+  if (/fase\s*de\s*grupos/.test(n)) return false
+  if (/group\s*stage/.test(n)) return false
+  // Todo lo demás es eliminatorio (octavos, cuartos, semis, final, play-off, repechaje, etc.)
+  return true
+}
+
 function isPlaceholder(nombre: string): boolean {
   if (!nombre) return true
   if (/^[0-9][A-Z](\/[A-Z])*$/.test(nombre)) return true // 1B, 3A/B/C/D/F
@@ -167,6 +178,19 @@ Deno.serve(async (req) => {
         const golesLocal = (scores && scores[0] != null) ? Number(scores[0]) : null
         const golesVis = (scores && scores[1] != null) ? Number(scores[1]) : null
 
+        // Detectar eliminatorio y ganador por penales (si el partido está finalizado)
+        const esElim = esEliminatorio(roundName)
+        let ganadorPenalesId: number | null = null
+        if (esElim && estado === 'finalizado') {
+          const penScores = game.penalty_scores || game.penalties
+          if (Array.isArray(penScores) && penScores[0] != null && penScores[1] != null) {
+            const penLocal = Number(penScores[0])
+            const penVis = Number(penScores[1])
+            if (penLocal > penVis) ganadorPenalesId = localEq.id
+            else if (penVis > penLocal) ganadorPenalesId = visEq.id
+          }
+        }
+
         const rawMin = game.game_time
         const minuto = estado === 'en_juego' && rawMin != null && rawMin !== '' ? parseInt(String(rawMin)) || null : null
 
@@ -199,6 +223,8 @@ Deno.serve(async (req) => {
           goles_visitante: golesVis,
           minuto: estado === 'en_juego' ? minuto : null,
           goleadores,
+          es_eliminatorio: esElim,
+          ganador_penales_id: ganadorPenalesId,
         }
 
         const { error } = existente

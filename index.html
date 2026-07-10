@@ -206,6 +206,13 @@ select option{background:#1a1a1a}
 .p-centro{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:110px}
 .p-fecha-txt{font-size:11px;color:var(--muted);letter-spacing:.04em;text-align:center;white-space:nowrap}
 .score-inputs{display:flex;align-items:center;gap:6px}
+.penal-check{display:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--border2);background:transparent;cursor:pointer;margin-top:6px;align-items:center;justify-content:center;transition:all .15s;color:var(--muted);font-size:11px;font-weight:700}
+.penal-check.visible{display:inline-flex}
+.penal-check.selected{background:var(--lime);border-color:var(--lime);color:#000}
+.penal-check:hover{border-color:var(--lime);color:var(--lime)}
+.penal-check.selected:hover{color:#000}
+.penal-hint{display:none;grid-column:1/-1;text-align:center;font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;padding:4px 0 0;margin-top:-4px}
+.penal-hint.visible{display:block}
 .score-in{width:42px;height:42px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r2);color:var(--white);font-family:'Bebas Neue',sans-serif;font-size:24px;text-align:center;padding:0;-moz-appearance:textfield;transition:border-color .15s}
 .score-in::-webkit-outer-spin-button,.score-in::-webkit-inner-spin-button{-webkit-appearance:none}
 .score-in:focus{border-color:var(--lime);outline:none}
@@ -1043,6 +1050,48 @@ async function renderFixture() {
 }
 
 let _cardIndex = 0;
+
+function penalCheckHtml(p, prono, side, puedePredecir, pos) {
+  if (!p.es_eliminatorio || !puedePredecir) return '';
+  const teamId = pos === 'left' ? p.equipo_local_id : p.equipo_visitante_id;
+  const glVal = parseInt(prono?.goles_local);
+  const gvVal = parseInt(prono?.goles_visitante);
+  const isEmpate = !isNaN(glVal) && !isNaN(gvVal) && glVal === gvVal;
+  const selected = prono?.ganador_penales_id === teamId;
+  return `<div class="penal-check ${isEmpate?'visible':''} ${selected?'selected':''}" data-tid="${teamId}" onclick="togglePenalSel(${p.id}, ${teamId})" title="Pasa por penales">✓</div>`;
+}
+
+function penalHintHtml(p, prono, puedePredecir) {
+  if (!p.es_eliminatorio || !puedePredecir) return '';
+  const glVal = parseInt(prono?.goles_local);
+  const gvVal = parseInt(prono?.goles_visitante);
+  const isEmpate = !isNaN(glVal) && !isNaN(gvVal) && glVal === gvVal;
+  return `<div class="penal-hint ${isEmpate?'visible':''}">¿Quién pasa por penales? Tildá un equipo (+bonus si acertás)</div>`;
+}
+
+function updatePenalUI(pid) {
+  const card = document.querySelector(`.partido-card[data-pid="${pid}"]`);
+  if (!card) return;
+  const sl = parseInt(document.getElementById(`sl-${pid}`)?.value);
+  const sv = parseInt(document.getElementById(`sv-${pid}`)?.value);
+  const isEmpate = !isNaN(sl) && !isNaN(sv) && sl === sv;
+  card.querySelectorAll('.penal-check').forEach(el => {
+    el.classList.toggle('visible', isEmpate);
+    if (!isEmpate) el.classList.remove('selected');
+  });
+  card.querySelector('.penal-hint')?.classList.toggle('visible', isEmpate);
+}
+
+async function togglePenalSel(pid, teamId) {
+  const card = document.querySelector(`.partido-card[data-pid="${pid}"]`);
+  if (!card) return;
+  const target = card.querySelector(`.penal-check[data-tid="${teamId}"]`);
+  const wasSelected = target?.classList.contains('selected');
+  card.querySelectorAll('.penal-check').forEach(c => c.classList.remove('selected'));
+  if (!wasSelected) target?.classList.add('selected');
+  autoSaveProno(pid); // gatillar guardado inmediato
+}
+
 function buildPartidoCard(p, prono) {
   const now = new Date(), fh = new Date(p.fecha_hora);
   const minFaltan = (fh - now) / 60000;
@@ -1125,9 +1174,10 @@ function buildPartidoCard(p, prono) {
   const compBadge = compLabel ? `<div class="comp-badge comp-${p.competicion}">${compLabel}</div>` : '';
   return `<div class="partido-card anim-enter ${p.estado==='finalizado'?'finalizado':''} ${p.estado==='en_juego'?'en-juego':''}" data-pid="${p.id}" data-fh="${p.fecha_hora||''}" data-min="${p.minuto||''}" data-min-at="${Date.now()}" style="animation-delay:${delay}ms;${p.estado==='finalizado'&&prono?'grid-template-columns:1fr auto 1fr auto':''}"${clickAttr}>
     ${compBadge}
-    <div class="p-equipo">${lImg}<span class="p-nombre">${h(p.local?.nombre||'Local')}</span></div>
+    <div class="p-equipo">${lImg}<span class="p-nombre">${h(p.local?.nombre||'Local')}</span>${penalCheckHtml(p, prono, p.local, puedePredecir, 'left')}</div>
     <div class="p-centro">${estadoHtml}${centroHtml}${pronoHtml}</div>
-    <div class="p-equipo right">${vImg}<span class="p-nombre">${h(p.visitante?.nombre||'Visitante')}</span></div>
+    <div class="p-equipo right">${vImg}<span class="p-nombre">${h(p.visitante?.nombre||'Visitante')}</span>${penalCheckHtml(p, prono, p.visitante, puedePredecir, 'right')}</div>
+    ${penalHintHtml(p, prono, puedePredecir)}
     ${ptsCardHtml}
     ${goleadoresHtml}
     ${p.estado==='finalizado'?'<div class="pronos-panel" data-loaded="0"><div class="pronos-list"><div class="prono-loading">CARGANDO...</div></div></div>':''}
@@ -1164,6 +1214,7 @@ async function togglePronos(card, partidoId) {
 
 const _pronoTimers = {};
 function autoSaveProno(pid) {
+  updatePenalUI(pid); // mostrar/ocultar checks de penales según empate
   clearTimeout(_pronoTimers[pid]);
   const statusEl = document.getElementById(`prono-status-${pid}`);
   if (statusEl) { statusEl.style.color = 'var(--muted)'; statusEl.textContent = 'Guardando...'; }
@@ -1175,8 +1226,12 @@ function autoSaveProno(pid) {
       if (statusEl) { statusEl.style.color='var(--danger)'; statusEl.textContent='Valor inválido'; }
       return;
     }
+    // Ganador de penales: solo si es empate y hay uno tildado
+    const card = document.querySelector(`.partido-card[data-pid="${pid}"]`);
+    const selectedCheck = card?.querySelector('.penal-check.selected');
+    const ganadorPenalesId = (gl === gv && selectedCheck) ? parseInt(selectedCheck.dataset.tid) : null;
     const { error } = await sb.from('pronosticos').upsert(
-      { user_id:cUser.id, partido_id:pid, goles_local:gl, goles_visitante:gv, updated_at:new Date().toISOString() },
+      { user_id:cUser.id, partido_id:pid, goles_local:gl, goles_visitante:gv, ganador_penales_id: ganadorPenalesId, updated_at:new Date().toISOString() },
       { onConflict:'user_id,partido_id' }
     );
     if (statusEl) {
@@ -1542,6 +1597,7 @@ async function renderAdminConfig() {
     {key:'pts_ganador',label:'Solo el ganador'},
     {key:'pts_empate_exacto',label:'Empate exacto'},
     {key:'pts_empate',label:'Solo empate (sin marcador)'},
+    {key:'pts_penales',label:'Tanda de penales (bonus por acertar ganador en eliminatorio)'},
   ];
   c.innerHTML = `<p style="font-size:13px;color:var(--text-dim);margin-bottom:20px">Puntos por tipo de acierto.</p>
     ${items.map(i=>`<div class="cfg-row"><span class="cfg-label">${i.label}</span><input type="number" class="cfg-input score-in" id="cfg-${i.key}" value="${cfg[i.key]||0}" min="0" max="99"></div>`).join('')}
@@ -1590,7 +1646,7 @@ async function borrarEdicion(id, nombre) {
 }
 
 async function saveConfig() {
-  const keys = ['pts_exacto','pts_diferencia','pts_ganador','pts_empate_exacto','pts_empate'];
+  const keys = ['pts_exacto','pts_diferencia','pts_ganador','pts_empate_exacto','pts_empate','pts_penales'];
   for (const k of keys) {
     await sb.from('config').update({ value: document.getElementById(`cfg-${k}`)?.value||'0' }).eq('key',k);
   }
