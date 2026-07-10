@@ -206,13 +206,13 @@ select option{background:#1a1a1a}
 .p-centro{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:110px}
 .p-fecha-txt{font-size:11px;color:var(--muted);letter-spacing:.04em;text-align:center;white-space:nowrap}
 .score-inputs{display:flex;align-items:center;gap:6px}
-.penal-check{display:none;width:42px;height:42px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r2);cursor:pointer;align-items:center;justify-content:center;transition:all .15s;color:var(--muted);font-size:20px;font-weight:700}
+.penal-check{display:none;width:44px;min-width:44px;max-width:44px;height:44px;box-sizing:border-box;flex-shrink:0;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r2);cursor:pointer;align-items:center;justify-content:center;transition:all .15s;color:var(--muted);font-size:20px;font-weight:700}
 .penal-check.visible{display:inline-flex}
 .penal-check.selected{background:var(--lime);border-color:var(--lime);color:#000}
 .penal-check:hover:not(.selected){border-color:var(--lime);color:var(--lime)}
 .penal-hint{display:none;grid-column:1/-1;text-align:center;font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;padding:4px 0 0;margin-top:-4px}
 .penal-hint.visible{display:block}
-.score-in{width:42px;height:42px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r2);color:var(--white);font-family:'Bebas Neue',sans-serif;font-size:24px;text-align:center;padding:0;-moz-appearance:textfield;transition:border-color .15s}
+.score-in{width:44px;min-width:44px;max-width:44px;height:44px;box-sizing:border-box;flex-shrink:0;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r2);color:var(--white);font-family:'Bebas Neue',sans-serif;font-size:24px;text-align:center;padding:0;-moz-appearance:textfield;transition:border-color .15s}
 .score-in::-webkit-outer-spin-button,.score-in::-webkit-inner-spin-button{-webkit-appearance:none}
 .score-in:focus{border-color:var(--lime);outline:none}
 .score-in:disabled{opacity:.35;cursor:not-allowed}
