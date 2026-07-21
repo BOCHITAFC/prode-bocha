@@ -1047,14 +1047,18 @@ async function renderFixture() {
   const grupos = {};
   const dias = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
   const meses = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+  // Formatear en zona horaria de Argentina (evita que partidos nocturnos "salten" de día por UTC)
+  const arFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit' });
   partidos.forEach(p => {
     if (!p.fecha_hora) return;
     const dt = new Date(p.fecha_hora);
-    const key = dt.toISOString().slice(0, 10); // YYYY-MM-DD
+    const key = arFmt.format(dt); // YYYY-MM-DD en hora Argentina
     if (!grupos[key]) {
+      const [yyyy, mm, dd] = key.split('-').map(Number);
+      const dLocal = new Date(yyyy, mm - 1, dd); // fecha "naive" solo para sacar día de semana/mes visual
       grupos[key] = {
         partidos: [],
-        dayLabel: `${dias[dt.getDay()]} ${dt.getDate()} ${meses[dt.getMonth()]}`,
+        dayLabel: `${dias[dLocal.getDay()]} ${dd} ${meses[mm - 1]}`,
         ligaJornadas: new Set()
       };
       grupoKeys.push(key);
