@@ -1051,8 +1051,22 @@ async function renderFixture() {
     if (!p.fecha_hora) return;
     const dt = new Date(p.fecha_hora);
     const key = dt.toISOString().slice(0, 10); // YYYY-MM-DD
-    if (!grupos[key]) { grupos[key] = { partidos: [], label: `${dias[dt.getDay()]} ${dt.getDate()} ${meses[dt.getMonth()]}` }; grupoKeys.push(key); }
+    if (!grupos[key]) {
+      grupos[key] = {
+        partidos: [],
+        dayLabel: `${dias[dt.getDay()]} ${dt.getDate()} ${meses[dt.getMonth()]}`,
+        ligaJornadas: new Set()
+      };
+      grupoKeys.push(key);
+    }
     grupos[key].partidos.push(p);
+    if (p.competicion === 'liga' && p.jornada) grupos[key].ligaJornadas.add(p.jornada);
+  });
+  // Construir label final con fecha de liga si corresponde
+  grupoKeys.forEach(k => {
+    const g = grupos[k];
+    const fechas = [...g.ligaJornadas].sort((a,b) => a-b);
+    g.label = fechas.length ? `${g.dayLabel} — LIGA FECHA ${fechas.join('/')}` : g.dayLabel;
   });
   // Ordenar cronológicamente (los keys son YYYY-MM-DD, ordenan como strings)
   grupoKeys.sort();
