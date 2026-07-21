@@ -1048,12 +1048,18 @@ async function renderFixture() {
   partidos.forEach(p => {
     // Para liga/mundial agrupar por jornada; para copas (libertadores/sudamericana) agrupar por competición
     const esCup = p.competicion === 'libertadores' || p.competicion === 'sudamericana';
-    const key = esCup ? `comp:${p.competicion}` : `${p.competicion}:fecha:${p.jornada||'—'}`;
-    if (!grupos[key]) { grupos[key] = { partidos: [], label: '' }; grupoKeys.push(key); }
+    // Separar copas por jornada (para que ida/vuelta o distintas rondas queden en grupos distintos)
+    const key = `${p.competicion}:j:${p.jornada||'—'}`;
+    if (!grupos[key]) { grupos[key] = { partidos: [], label: '', firstDate: p.fecha_hora }; grupoKeys.push(key); }
     grupos[key].partidos.push(p);
+    if (p.fecha_hora && (!grupos[key].firstDate || new Date(p.fecha_hora) < new Date(grupos[key].firstDate))) {
+      grupos[key].firstDate = p.fecha_hora;
+    }
     const compLabel = COMP_LABELS[p.competicion] || p.competicion;
-    grupos[key].label = esCup ? compLabel : `${compLabel} — Fecha ${p.jornada||'—'}`;
+    grupos[key].label = esCup ? (p.jornada ? `${compLabel} — Fecha ${p.jornada}` : compLabel) : `${compLabel} — Fecha ${p.jornada||'—'}`;
   });
+  // Ordenar grupos cronológicamente por la fecha del primer partido
+  grupoKeys.sort((a, b) => new Date(grupos[a].firstDate||0) - new Date(grupos[b].firstDate||0));
   let html = '';
   grupoKeys.forEach(k => {
     html += `<div class="jornada-sep">${h(grupos[k].label)}</div>`;
