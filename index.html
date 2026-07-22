@@ -177,6 +177,7 @@ select option{background:#1a1a1a}
 .partido-card{position:relative;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:18px 20px;margin-bottom:8px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px}
 .partido-card.comp-bg-sudamericana{background:linear-gradient(rgba(10,12,20,.72),rgba(10,12,20,.72)),url('COPAS/Sudamericana/BG.png');background-size:cover;background-position:center;border-color:rgba(220,148,53,.35)}
 .partido-card.comp-bg-libertadores{background:linear-gradient(rgba(8,8,10,.62),rgba(8,8,10,.62)),url('COPAS/Libertadores/BG.png');background-size:cover;background-position:center;border-color:rgba(212,175,55,.35)}
+.partido-card.comp-bg-liga{background:linear-gradient(rgba(10,10,14,.35),rgba(10,10,14,.35)),url('COPAS/LPF/BG_02.png');background-size:cover;background-position:center;border-color:rgba(108,200,225,.35)}
 .comp-watermark{position:absolute;bottom:8px;right:10px;width:36px;height:36px;opacity:.9;pointer-events:none;z-index:5}
 .comp-badge{position:absolute;top:6px;left:12px;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:var(--surface2);padding:2px 6px;border-radius:4px;opacity:.7}
 .comp-badge.comp-mundial{color:var(--lime)}
@@ -1266,11 +1267,13 @@ function buildPartidoCard(p, prono, ctx) {
   const clickAttr = p.estado === 'finalizado' ? ` onclick="togglePronos(this,${p.id})"` : '';
   const compLabel = COMP_LABELS[p.competicion] || '';
   const compBadge = compLabel ? `<div class="comp-badge comp-${p.competicion}">${compLabel}</div>` : '';
-  const compBgClass = p.competicion === 'sudamericana' ? 'comp-bg-sudamericana' : p.competicion === 'libertadores' ? 'comp-bg-libertadores' : '';
+  const compBgClass = p.competicion === 'sudamericana' ? 'comp-bg-sudamericana' : p.competicion === 'libertadores' ? 'comp-bg-libertadores' : p.competicion === 'liga' ? 'comp-bg-liga' : '';
   const compWatermark = p.competicion === 'sudamericana'
     ? `<img class="comp-watermark" src="COPAS/Sudamericana/logo_conmebol-sudamericana.svg" alt="">`
     : p.competicion === 'libertadores'
     ? `<img class="comp-watermark" src="COPAS/Libertadores/logo_conmebol-libertadores.svg" alt="">`
+    : p.competicion === 'liga'
+    ? `<img class="comp-watermark" src="COPAS/LPF/logo_LPF.svg" alt="">`
     : '';
   const pronoIdaCtx = p.partido_ida_id ? ctx?.pm?.[p.partido_ida_id] : null;
   const idaGlAttr = pronoIdaCtx?.goles_local ?? '';
