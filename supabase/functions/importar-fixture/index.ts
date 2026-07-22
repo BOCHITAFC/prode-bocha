@@ -239,8 +239,41 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Post-proceso: detectar llaves ida/vuelta en eliminatorias de copas (Libertadores/Sudamericana)
+    // Un par ida/vuelta = mismos 2 equipos (invertidos como local/visitante), misma competición, ambos eliminatorios
+    let idaVueltaLinked = 0
+    if (competicion === 'libertadores' || competicion === 'sudamericana') {
+      const { data: elimPartidos } = await supabase
+        .from('partidos')
+        .select('id, equipo_local_id, equipo_visitante_id, fecha_hora, partido_ida_id')
+        .eq('competicion', competicion)
+        .eq('es_eliminatorio', true)
+
+      const lista = elimPartidos || []
+      for (const p1 of lista) {
+        if (p1.partido_ida_id) continue // ya linkeado
+        // Buscar el partido "espejo": mismos equipos invertidos
+        const p2 = lista.find(p2 =>
+          p2.id !== p1.id &&
+          p2.equipo_local_id === p1.equipo_visitante_id &&
+          p2.equipo_visitante_id === p1.equipo_local_id
+        )
+        if (!p2) continue // partido único (sin vuelta), no tocar
+
+        // El que tiene fecha posterior es la vuelta
+        const [ida, vuelta] = new Date(p1.fecha_hora) <= new Date(p2.fecha_hora) ? [p1, p2] : [p2, p1]
+        if (vuelta.partido_ida_id === ida.id) continue // ya estaba bien
+
+        const { error: linkErr } = await supabase
+          .from('partidos')
+          .update({ partido_ida_id: ida.id })
+          .eq('id', vuelta.id)
+        if (!linkErr) idaVueltaLinked++
+      }
+    }
+
     return new Response(
-      JSON.stringify({ success: true, competicion, rounds: rounds.length, upserted, skipped, creados, equiposCreados, skippedTeams }),
+      JSON.stringify({ success: true, competicion, rounds: rounds.length, upserted, skipped, creados, equiposCreados, skippedTeams, idaVueltaLinked }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 

@@ -1042,6 +1042,18 @@ async function renderFixture() {
   if (!partidos?.length) { c.innerHTML = `<div class="empty"><div class="empty-txt">No hay partidos ${_fixtureTab === 'jugados' ? 'jugados' : 'próximos'}</div></div>`; return; }
   const { data: pronos } = await sb.from('pronosticos').select('*').eq('user_id', cUser.id);
   const pm = {}; (pronos||[]).forEach(p => pm[p.partido_id] = p);
+
+  // Contexto de llaves ida/vuelta: qué partidos son "ida" (tienen vuelta) y traer datos de las idas referenciadas
+  const { data: vueltaLinks } = await sb.from('partidos').select('partido_ida_id').not('partido_ida_id', 'is', null);
+  const idaConVuelta = new Set((vueltaLinks || []).map(v => v.partido_ida_id));
+  const idaIdsNecesarios = [...new Set(partidos.filter(p => p.partido_ida_id).map(p => p.partido_ida_id))];
+  const idaMap = {};
+  if (idaIdsNecesarios.length) {
+    const { data: idaPartidos } = await sb.from('partidos')
+      .select('id,goles_local,goles_visitante,equipo_local_id,equipo_visitante_id,estado')
+      .in('id', idaIdsNecesarios);
+    (idaPartidos || []).forEach(ip => idaMap[ip.id] = ip);
+  }
   _cardIndex = 0;
   const grupoKeys = [];
   const grupos = {};
@@ -1077,7 +1089,7 @@ async function renderFixture() {
   let html = '';
   grupoKeys.forEach(k => {
     html += `<div class="jornada-sep">${h(grupos[k].label)}</div>`;
-    grupos[k].partidos.forEach(p => { html += buildPartidoCard(p, pm[p.id]); });
+    grupos[k].partidos.forEach(p => { html += buildPartidoCard(p, pm[p.id], { idaConVuelta, idaMap, pm }); });
   });
   c.innerHTML = html;
   c.querySelectorAll('.anim-enter').forEach(el => el.addEventListener('animationend', () => el.classList.remove('anim-enter'), { once: true }));
@@ -1085,22 +1097,48 @@ async function renderFixture() {
 
 let _cardIndex = 0;
 
-function penalCheckHtml(p, prono, puedePredecir, pos) {
+// Determina si el partido es "ida" de una llave (tiene vuelta) → nunca se puede elegir acá
+function esIdaConVuelta(p, ctx) {
+  return !!ctx?.idaConVuelta?.has(p.id);
+}
+
+// Calcula si la predicción (propia) da empate en el global. Para partido único: empate del propio partido.
+// Para vuelta: suma la predicción de ida (guardada) + predicción actual de vuelta (inputs en vivo o prono guardado).
+function calcEmpateGlobal(p, prono, ctx, vueltaGl, vueltaGv) {
+  if (p.partido_ida_id && ctx?.pm) {
+    const pronoIda = ctx.pm[p.partido_ida_id];
+    const idaGl = parseInt(pronoIda?.goles_local);
+    const idaGv = parseInt(pronoIda?.goles_visitante);
+    if (isNaN(idaGl) || isNaN(idaGv) || isNaN(vueltaGl) || isNaN(vueltaGv)) return false;
+    // La vuelta tiene los equipos invertidos respecto a la ida (garantizado por el detector de llaves)
+    const totalLocalVuelta = idaGv + vueltaGl; // equipo que es local en la vuelta = visitante en la ida
+    const totalVisitanteVuelta = idaGl + vueltaGv; // equipo que es visitante en la vuelta = local en la ida
+    return totalLocalVuelta === totalVisitanteVuelta;
+  }
+  return !isNaN(vueltaGl) && !isNaN(vueltaGv) && vueltaGl === vueltaGv;
+}
+
+function penalCheckHtml(p, prono, puedePredecir, pos, ctx) {
   if (!p.es_eliminatorio || !puedePredecir) return '';
+  if (esIdaConVuelta(p, ctx)) return ''; // en la ida nunca se define
   const teamId = pos === 'left' ? p.equipo_local_id : p.equipo_visitante_id;
   const glVal = parseInt(prono?.goles_local);
   const gvVal = parseInt(prono?.goles_visitante);
-  const isEmpate = !isNaN(glVal) && !isNaN(gvVal) && glVal === gvVal;
+  const isEmpate = calcEmpateGlobal(p, prono, ctx, glVal, gvVal);
   const selected = prono?.ganador_penales_id === teamId;
   return `<div class="penal-check ${isEmpate?'visible':''} ${selected?'selected':''}" data-tid="${teamId}" onclick="togglePenalSel(${p.id}, ${teamId})" title="Pasa por penales">✓</div>`;
 }
 
-function penalHintHtml(p, prono, puedePredecir) {
+function penalHintHtml(p, prono, puedePredecir, ctx) {
   if (!p.es_eliminatorio || !puedePredecir) return '';
+  if (esIdaConVuelta(p, ctx)) return '';
   const glVal = parseInt(prono?.goles_local);
   const gvVal = parseInt(prono?.goles_visitante);
-  const isEmpate = !isNaN(glVal) && !isNaN(gvVal) && glVal === gvVal;
-  return `<div class="penal-hint ${isEmpate?'visible':''}">¿Quién pasa por penales? Tildá un equipo (+bonus si acertás)</div>`;
+  const isEmpate = calcEmpateGlobal(p, prono, ctx, glVal, gvVal);
+  const texto = p.partido_ida_id
+    ? '¿Quién pasa por penales? (según el global de ida+vuelta) Tildá un equipo (+bonus si acertás)'
+    : '¿Quién pasa por penales? Tildá un equipo (+bonus si acertás)';
+  return `<div class="penal-hint ${isEmpate?'visible':''}">${texto}</div>`;
 }
 
 function updatePenalUI(pid) {
@@ -1108,7 +1146,15 @@ function updatePenalUI(pid) {
   if (!card) return;
   const sl = parseInt(document.getElementById(`sl-${pid}`)?.value);
   const sv = parseInt(document.getElementById(`sv-${pid}`)?.value);
-  const isEmpate = !isNaN(sl) && !isNaN(sv) && sl === sv;
+  let isEmpate;
+  const idaGl = card.dataset.idaGl !== undefined && card.dataset.idaGl !== '' ? parseInt(card.dataset.idaGl) : NaN;
+  const idaGv = card.dataset.idaGv !== undefined && card.dataset.idaGv !== '' ? parseInt(card.dataset.idaGv) : NaN;
+  if (card.dataset.esVuelta === '1') {
+    if (isNaN(idaGl) || isNaN(idaGv) || isNaN(sl) || isNaN(sv)) isEmpate = false;
+    else isEmpate = (idaGv + sl) === (idaGl + sv);
+  } else {
+    isEmpate = !isNaN(sl) && !isNaN(sv) && sl === sv;
+  }
   card.querySelectorAll('.penal-check').forEach(el => {
     el.classList.toggle('visible', isEmpate);
     if (!isEmpate) el.classList.remove('selected');
@@ -1126,7 +1172,7 @@ async function togglePenalSel(pid, teamId) {
   autoSaveProno(pid); // gatillar guardado inmediato
 }
 
-function buildPartidoCard(p, prono) {
+function buildPartidoCard(p, prono, ctx) {
   const now = new Date(), fh = new Date(p.fecha_hora);
   const minFaltan = (fh - now) / 60000;
   const puedePredecir = minFaltan > 5 && p.estado === 'pendiente';
@@ -1153,11 +1199,11 @@ function buildPartidoCard(p, prono) {
     if (puedePredecir) {
       const gl = prono?.goles_local??'', gv = prono?.goles_visitante??'';
       centroHtml = `<div class="score-inputs">
-        ${penalCheckHtml(p, prono, puedePredecir, 'left')}
+        ${penalCheckHtml(p, prono, puedePredecir, 'left', ctx)}
         <input type="number" class="score-in" id="sl-${p.id}" value="${gl}" min="0" max="30" placeholder="0" oninput="autoSaveProno(${p.id})">
         <span class="score-sep">-</span>
         <input type="number" class="score-in" id="sv-${p.id}" value="${gv}" min="0" max="30" placeholder="0" oninput="autoSaveProno(${p.id})">
-        ${penalCheckHtml(p, prono, puedePredecir, 'right')}
+        ${penalCheckHtml(p, prono, puedePredecir, 'right', ctx)}
       </div>
       <span id="prono-status-${p.id}" style="font-size:11px;min-height:16px;display:block;color:var(--muted)">${prono?'✓ guardado':''}</span>`;
     } else if (!yaEmpezó) {
@@ -1208,12 +1254,16 @@ function buildPartidoCard(p, prono) {
   const clickAttr = p.estado === 'finalizado' ? ` onclick="togglePronos(this,${p.id})"` : '';
   const compLabel = COMP_LABELS[p.competicion] || '';
   const compBadge = compLabel ? `<div class="comp-badge comp-${p.competicion}">${compLabel}</div>` : '';
-  return `<div class="partido-card anim-enter ${p.estado==='finalizado'?'finalizado':''} ${p.estado==='en_juego'?'en-juego':''}" data-pid="${p.id}" data-fh="${p.fecha_hora||''}" data-min="${p.minuto||''}" data-min-at="${Date.now()}" style="animation-delay:${delay}ms;${p.estado==='finalizado'&&prono?'grid-template-columns:1fr auto 1fr auto':''}"${clickAttr}>
+  const pronoIdaCtx = p.partido_ida_id ? ctx?.pm?.[p.partido_ida_id] : null;
+  const idaGlAttr = pronoIdaCtx?.goles_local ?? '';
+  const idaGvAttr = pronoIdaCtx?.goles_visitante ?? '';
+  const esVueltaAttr = p.partido_ida_id ? '1' : '0';
+  return `<div class="partido-card anim-enter ${p.estado==='finalizado'?'finalizado':''} ${p.estado==='en_juego'?'en-juego':''}" data-pid="${p.id}" data-fh="${p.fecha_hora||''}" data-min="${p.minuto||''}" data-min-at="${Date.now()}" data-es-vuelta="${esVueltaAttr}" data-ida-gl="${idaGlAttr}" data-ida-gv="${idaGvAttr}" style="animation-delay:${delay}ms;${p.estado==='finalizado'&&prono?'grid-template-columns:1fr auto 1fr auto':''}"${clickAttr}>
     ${compBadge}
     <div class="p-equipo">${lImg}<span class="p-nombre">${h(p.local?.nombre||'Local')}</span></div>
     <div class="p-centro">${estadoHtml}${centroHtml}${pronoHtml}</div>
     <div class="p-equipo right">${vImg}<span class="p-nombre">${h(p.visitante?.nombre||'Visitante')}</span></div>
-    ${penalHintHtml(p, prono, puedePredecir)}
+    ${penalHintHtml(p, prono, puedePredecir, ctx)}
     ${ptsCardHtml}
     ${goleadoresHtml}
     ${p.estado==='finalizado'?'<div class="pronos-panel" data-loaded="0"><div class="pronos-list"><div class="prono-loading">CARGANDO...</div></div></div>':''}
