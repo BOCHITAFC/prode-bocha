@@ -83,33 +83,12 @@ Deno.serve(async (req) => {
     const filtersWithKey = filters.filter((f: any) => f.key && f.key !== 'latest')
     const latestFilter = filters.find((f: any) => f.key === 'latest')
 
-    let roundsToFetch: any[]
-    if (competicion === 'mundial') {
-      // Mundial: pocas rondas en total, traemos todas
-      roundsToFetch = filtersWithKey
-    } else {
-      // Liga/copas: traer la fecha actual ("latest") + las 2 siguientes si son fechas numeradas
-      // (evita traer todo el torneo, pero da visibilidad de las próximas 2 fechas)
-      roundsToFetch = latestFilter ? [latestFilter] : filtersWithKey.slice(-1)
-      if (latestFilter) {
-        // Necesitamos saber el número de fecha actual: lo sacamos del primer juego de "latest"
-        const latestApiUrl = `https://api.promiedos.com.ar/league/games/${leagueCode}/${latestFilter.key}`
-        const latestRes = await fetch(latestApiUrl, {
-          headers: { 'Accept': 'application/json', 'Origin': 'https://www.promiedos.com.ar', 'Referer': pageUrl }
-        })
-        if (latestRes.ok) {
-          const latestData = await latestRes.json()
-          const sampleName: string = latestData?.games?.[0]?.stage_round_name || ''
-          const currentNum = parseInt(sampleName.replace(/\D/g, '')) || null
-          if (currentNum) {
-            const siguientes = [currentNum + 1, currentNum + 2]
-              .map(n => filtersWithKey.find((f: any) => f.name === `Fecha ${n}`))
-              .filter(Boolean)
-            roundsToFetch = [latestFilter, ...siguientes]
-          }
-        }
-      }
-    }
+    // Liga/copas: solo la fecha actual ("latest"). Los keys individuales de "Fecha N" en Promiedos
+    // pueden colisionar con numeración de una mitad de temporada anterior (ej: Apertura/Clausura),
+    // devolviendo partidos viejos ya jugados en vez de los próximos — por eso NO miramos hacia adelante.
+    const roundsToFetch = competicion === 'mundial'
+      ? filtersWithKey
+      : (latestFilter ? [latestFilter] : filtersWithKey.slice(-1))
 
     if (roundsToFetch.length === 0) throw new Error('No hay fechas disponibles en este momento')
 
