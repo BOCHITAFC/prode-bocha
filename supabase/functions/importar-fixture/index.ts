@@ -79,14 +79,37 @@ Deno.serve(async (req) => {
     // Extraer el código de liga de la URL (ej: "hc" de /league/liga-profesional/hc)
     const leagueCode = pageUrl.split('/').pop() || ''
 
-    // Obtener rounds con sus keys — para el mundial todos los que tienen key, para liga el "latest"
+    // Obtener rounds con sus keys — para el mundial todos los que tienen key
     const filtersWithKey = filters.filter((f: any) => f.key && f.key !== 'latest')
-    // Para Mundial traemos todas las rondas. Para ligas/copas usamos la ronda "latest" (fecha en curso)
-    // y si no existe, caemos a la última del array como fallback.
     const latestFilter = filters.find((f: any) => f.key === 'latest')
-    const roundsToFetch = competicion === 'mundial'
-      ? filtersWithKey
-      : (latestFilter ? [latestFilter] : filtersWithKey.slice(-1))
+
+    let roundsToFetch: any[]
+    if (competicion === 'mundial') {
+      // Mundial: pocas rondas en total, traemos todas
+      roundsToFetch = filtersWithKey
+    } else {
+      // Liga/copas: traer la fecha actual ("latest") + las 2 siguientes si son fechas numeradas
+      // (evita traer todo el torneo, pero da visibilidad de las próximas 2 fechas)
+      roundsToFetch = latestFilter ? [latestFilter] : filtersWithKey.slice(-1)
+      if (latestFilter) {
+        // Necesitamos saber el número de fecha actual: lo sacamos del primer juego de "latest"
+        const latestApiUrl = `https://api.promiedos.com.ar/league/games/${leagueCode}/${latestFilter.key}`
+        const latestRes = await fetch(latestApiUrl, {
+          headers: { 'Accept': 'application/json', 'Origin': 'https://www.promiedos.com.ar', 'Referer': pageUrl }
+        })
+        if (latestRes.ok) {
+          const latestData = await latestRes.json()
+          const sampleName: string = latestData?.games?.[0]?.stage_round_name || ''
+          const currentNum = parseInt(sampleName.replace(/\D/g, '')) || null
+          if (currentNum) {
+            const siguientes = [currentNum + 1, currentNum + 2]
+              .map(n => filtersWithKey.find((f: any) => f.name === `Fecha ${n}`))
+              .filter(Boolean)
+            roundsToFetch = [latestFilter, ...siguientes]
+          }
+        }
+      }
+    }
 
     if (roundsToFetch.length === 0) throw new Error('No hay fechas disponibles en este momento')
 
