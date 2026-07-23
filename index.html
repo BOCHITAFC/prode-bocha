@@ -1094,10 +1094,12 @@ async function renderFixture() {
     g.label = fechas.length ? `${g.dayLabel} — LIGA FECHA ${fechas.join('/')}` : g.dayLabel;
   });
   // Ordenar cronológicamente (los keys son YYYY-MM-DD, ordenan como strings)
+  // En "jugados" mostramos del más reciente al más antiguo; en "próximos" del más cercano en el tiempo
+  const dirMult = _fixtureTab === 'jugados' ? -1 : 1;
   grupoKeys.sort((a, b) => {
-    const cmpDate = grupos[a].dateKey.localeCompare(grupos[b].dateKey);
+    const cmpDate = grupos[a].dateKey.localeCompare(grupos[b].dateKey) * dirMult;
     if (cmpDate !== 0) return cmpDate;
-    return grupos[a].minTime - grupos[b].minTime; // mismo día: ordenar por hora del primer partido
+    return (grupos[a].minTime - grupos[b].minTime) * dirMult; // mismo día: ordenar por hora
   });
   let html = '';
   grupoKeys.forEach(k => {
