@@ -1233,9 +1233,9 @@ function buildPartidoCard(p, prono, ctx) {
         else pronoHtml = `<span style="font-size:10px;color:var(--muted);letter-spacing:.08em">BLOQUEADO</span>`;
       }
     } else {
-      // Partido empezado sin marcador cargado aún → mostrar 0-0
+      // Partido empezado sin marcador cargado aún (en vivo, esperando sync) → mostrar en verde
       const gl = p.goles_local ?? 0, gv = p.goles_visitante ?? 0;
-      centroHtml = `<div class="score-display"><span class="score-big" style="color:var(--muted)">${gl}</span><span class="score-dash">-</span><span class="score-big" style="color:var(--muted)">${gv}</span></div>`;
+      centroHtml = `<div class="score-display"><span class="score-big" style="color:var(--lime)">${gl}</span><span class="score-dash">-</span><span class="score-big" style="color:var(--lime)">${gv}</span></div>`;
       if (prono) pronoHtml = `<span class="prono-badge" style="color:var(--muted);font-size:11px">Mi pronóstico: ${prono.goles_local}-${prono.goles_visitante}</span>`;
     }
   }
