@@ -645,21 +645,6 @@ async function getLigasActivas() {
 }
 
 function startAutoSync() {
-  // Auto-sync recurrente APAGADO temporalmente por egress. Solo hacemos UN sync al cargar
-  // para que los partidos finalizados pasen a "Jugados" al instante.
-  (async () => {
-    try {
-      const ligas = await getLigasActivas();
-      if (!ligas.length) return;
-      const headers = { 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' };
-      await Promise.all(ligas.map(liga =>
-        fetch(`${SB_URL}/functions/v1/sync-livescores`, { method: 'POST', headers, body: JSON.stringify({ liga }) })
-      ));
-      if (document.getElementById('nav-fixture')?.classList.contains('active')) renderFixture();
-      if (document.getElementById('nav-posiciones')?.classList.contains('active')) renderPosiciones();
-    } catch {}
-  })();
-  return;
   if (_autoSyncInterval) clearInterval(_autoSyncInterval);
   const headers = { 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' };
   const tick = async () => {
