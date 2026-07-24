@@ -507,6 +507,11 @@ select option{background:#1a1a1a}
 </div>
 
 
+<!-- LIGHTBOX: Imagen agrandada -->
+<div class="modal-overlay" id="modal-lightbox" onclick="closeModal('modal-lightbox')" style="background:rgba(0,0,0,.9)">
+  <img id="lightbox-img" src="" alt="" style="max-width:90vw;max-height:90vh;border-radius:var(--r2);object-fit:contain">
+</div>
+
 <!-- MODAL: Bio jugador -->
 <div class="modal-overlay" id="modal-bio">
   <div class="modal bio-modal" style="position:relative">
@@ -914,10 +919,13 @@ async function renderPosiciones() {
     const initials = h(u.alias||'?').slice(0,2).toUpperCase();
     const esYo = cProfile?.id === u.id;
     const totalPts = u.puntos_total + (u.en_juego||0);
-    const avatarClickable = esYo ? `onclick="openGifPicker()" style="cursor:pointer" title="${u.gif_url?'Cambiar tu GIF':'Elegir tu GIF'}"` : '';
+    const avatarClickable = esYo
+      ? `onclick="openGifPicker()" style="cursor:pointer" title="${u.gif_url?'Cambiar tu GIF':'Elegir tu GIF'}"`
+      : `onclick="openBioModal('${u.id}')" style="cursor:pointer" title="Ver perfil de ${h(u.alias)}"`;
     const delBtn = esYo && u.gif_url ? `<button class="gif-del-btn" onclick="event.stopPropagation();removeGif()" title="Borrar GIF">🗑️</button>` : '';
+    const gifClickable = esYo ? '' : `onclick="openBioModal('${u.id}')" style="cursor:pointer"`;
     const gifHtml = u.gif_url
-      ? `<div class="podio-gif"><img src="${h(u.gif_url)}" alt="">${delBtn}</div>`
+      ? `<div class="podio-gif" ${gifClickable}><img src="${h(u.gif_url)}" alt="">${delBtn}</div>`
       : '';
     return `<div class="podio-lugar ${cls}">
       <div class="podio-avatar" ${avatarClickable}>${u.avatar_url?`<img src="${u.avatar_url}" alt="">`:initials}</div>
@@ -945,9 +953,12 @@ async function renderPosiciones() {
     const initials = h(u.alias||'?').slice(0,2).toUpperCase();
     const esYo = cProfile?.id === u.id;
     const totalPts = u.puntos_total + (u.en_juego||0);
-    const avatarClickable = esYo ? `onclick="openGifPicker()" style="cursor:pointer" title="${u.gif_url?'Cambiar tu GIF':'Elegir tu GIF'}"` : '';
+    const avatarClickable = esYo
+      ? `onclick="openGifPicker()" style="cursor:pointer" title="${u.gif_url?'Cambiar tu GIF':'Elegir tu GIF'}"`
+      : `onclick="openBioModal('${u.id}')" style="cursor:pointer" title="Ver perfil de ${h(u.alias)}"`;
     const delBtn = esYo && u.gif_url ? `<button class="gif-del-btn" onclick="event.stopPropagation();removeGif()" title="Borrar GIF">🗑️</button>` : '';
-    const gifHtml = u.gif_url ? `<div class="banca-gif"><img src="${h(u.gif_url)}" alt="">${delBtn}</div>` : '';
+    const gifClickable = esYo ? '' : `onclick="openBioModal('${u.id}')" style="cursor:pointer"`;
+    const gifHtml = u.gif_url ? `<div class="banca-gif" ${gifClickable}><img src="${h(u.gif_url)}" alt="">${delBtn}</div>` : '';
     return `<div class="banca-spot">
       ${gifHtml}
       <div class="banca-avatar" ${avatarClickable}>${u.avatar_url?`<img src="${u.avatar_url}" alt="">`:initials}</div>
@@ -1092,13 +1103,15 @@ async function openBioModal(userId) {
   const avatarHtml = profile.avatar_url
     ? `<img src="${profile.avatar_url}" alt="">`
     : h(profile.alias||'?').slice(0,2).toUpperCase();
+  const avatarClick = profile.avatar_url ? `onclick="openLightbox('${profile.avatar_url}',event)" style="cursor:pointer"` : '';
+  const coverClick = profile.gif_url ? `onclick="openLightbox('${h(profile.gif_url)}',event)" style="cursor:pointer"` : '';
   const coverHtml = profile.gif_url
-    ? `<div class="bio-cover"><img src="${h(profile.gif_url)}" alt=""></div>`
+    ? `<div class="bio-cover" ${coverClick}><img src="${h(profile.gif_url)}" alt=""></div>`
     : `<div class="bio-cover empty"></div>`;
 
   content.innerHTML = `
     ${coverHtml}
-    <div class="bio-avatar-wrap"><div class="bio-avatar">${avatarHtml}</div></div>
+    <div class="bio-avatar-wrap"><div class="bio-avatar" ${avatarClick}>${avatarHtml}</div></div>
     <div class="bio-alias">${h(profile.alias)}</div>
     ${trofeosHtml ? `<div class="bio-trofeos">${trofeosHtml}</div>` : ''}
     ${profile.detalle ? `<div class="bio-detalle">"${h(profile.detalle)}"</div>` : ''}
@@ -1960,6 +1973,13 @@ function matchEquipo(name, equipos) {
 // ===== MODALS =====
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function openLightbox(url, e) {
+  if (e) e.stopPropagation();
+  if (!url) return;
+  document.getElementById('lightbox-img').src = url;
+  openModal('modal-lightbox');
+}
 document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); }));
 
 // ===== UTILS =====
