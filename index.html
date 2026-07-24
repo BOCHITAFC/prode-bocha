@@ -1087,7 +1087,7 @@ async function openBioModal(userId) {
   // Trofeos: una copa por cada edición donde salió 1° o último
   const trofeosHtml = (ediciones||[]).map(e => `
     <div class="bio-trofeo-item">
-      <div class="icon">${e.campeon_user_id === userId ? '🏆' : '🗑️'}</div>
+      <div class="icon">${e.campeon_user_id === userId ? '🏆' : '💩'}</div>
       <div class="nombre">${h(e.nombre)}</div>
     </div>`).join('');
 
