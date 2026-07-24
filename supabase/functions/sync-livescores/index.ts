@@ -55,11 +55,15 @@ Deno.serve(async (req) => {
 
     // Buscar la ronda "latest" (activa)
     const filtersWithKey = filters.filter((f: any) => f.key && f.key !== 'latest')
-    if (!filtersWithKey.length) throw new Error('Sin fechas disponibles')
+    const latestFilter = filters.find((f: any) => f.key === 'latest')
+    if (!filtersWithKey.length && !latestFilter) throw new Error('Sin fechas disponibles')
 
     // Para Mundial/Cups: traer todas las rondas con partidos próximos
-    // Para Liga: solo la última
-    const roundsToFetch = liga === 'liga' ? filtersWithKey.slice(-1) : filtersWithKey
+    // Para Liga: solo la ronda "latest" (fecha en curso), NO la última del array
+    // (esa puede ser la fecha final del torneo por numeración de Promiedos)
+    const roundsToFetch = liga === 'liga'
+      ? (latestFilter ? [latestFilter] : filtersWithKey.slice(-1))
+      : filtersWithKey
 
     const { data: equipos } = await supabase.from('equipos').select('id, nombre')
     if (!equipos) throw new Error('No se pudieron leer equipos')
