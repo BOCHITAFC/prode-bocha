@@ -1385,7 +1385,7 @@ function buildPartidoCard(p, prono, ctx) {
   const idaGvAttr = pronoIdaCtx?.goles_visitante ?? '';
   const esVueltaAttr = p.partido_ida_id ? '1' : '0';
   const hayContenidoArriba = !!goleadoresHtml || p.estado === 'finalizado';
-  const compWatermarkRow = compWatermark ? `<div style="grid-column:1/-1;display:flex;justify-content:flex-end;${hayContenidoArriba?'margin-top:-8px':'margin-top:-16px'}">${compWatermark}</div>` : '';
+  const compWatermarkRow = compWatermark ? `<div style="grid-column:1/-1;display:flex;justify-content:flex-end;${hayContenidoArriba?'margin-top:-16px':'margin-top:-16px'}">${compWatermark}</div>` : '';
   return `<div class="partido-card anim-enter ${compBgClass} ${p.estado==='finalizado'?'finalizado':''} ${p.estado==='en_juego'?'en-juego':''}" data-pid="${p.id}" data-fh="${p.fecha_hora||''}" data-min="${p.minuto||''}" data-min-at="${Date.now()}" data-es-vuelta="${esVueltaAttr}" data-ida-gl="${idaGlAttr}" data-ida-gv="${idaGvAttr}" style="animation-delay:${delay}ms;${p.estado==='finalizado'&&prono?'grid-template-columns:1fr auto 1fr auto':''}"${clickAttr}>
     ${compBadge}
     <div class="p-equipo">${lImg}<span class="p-nombre">${h(p.local?.nombre||'Local')}</span></div>
