@@ -162,6 +162,22 @@ select option{background:#1a1a1a}
 .banca-spot.empty .banca-line{opacity:0;pointer-events:none}
 /* Modal GIF picker */
 .gif-modal{display:flex;flex-direction:column;max-width:640px;max-height:80vh;width:90vw}
+.bio-modal{padding:0;max-width:420px;width:92vw;max-height:88vh;overflow-y:auto;overflow-x:hidden}
+.bio-cover{width:100%;aspect-ratio:16/9;background:var(--surface2);position:relative;overflow:hidden}
+.bio-cover img{width:100%;height:100%;object-fit:cover}
+.bio-cover.empty{background:linear-gradient(135deg,var(--surface2),var(--surface))}
+.bio-avatar-wrap{display:flex;justify-content:center;margin-top:-40px;position:relative;z-index:2}
+.bio-avatar{width:80px;height:80px;border-radius:50%;border:4px solid var(--surface);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--lime);overflow:hidden}
+.bio-avatar img{width:100%;height:100%;object-fit:cover}
+.bio-alias{text-align:center;font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:.04em;margin-top:10px}
+.bio-trofeos{display:flex;justify-content:center;gap:16px;margin-top:8px;flex-wrap:wrap;padding:0 20px}
+.bio-trofeo-chip{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);background:var(--surface2);padding:5px 10px;border-radius:20px}
+.bio-detalle{text-align:center;font-size:13px;color:var(--text-dim);line-height:1.5;padding:14px 24px 4px;font-style:italic}
+.bio-stats{padding:16px 20px 20px;display:flex;flex-direction:column;gap:10px}
+.bio-stat-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--r2);font-size:13px}
+.bio-stat-label{color:var(--muted)}
+.bio-stat-val{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:.02em}
+.bio-clickable{cursor:pointer}
 .gif-search{display:flex;gap:8px;margin-bottom:16px}
 .gif-search input{flex:1;padding:10px 14px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r2);color:var(--text);font-size:14px}
 .gif-search input:focus{border-color:var(--lime);outline:none}
@@ -488,6 +504,14 @@ select option{background:#1a1a1a}
   </div>
 </div>
 
+
+<!-- MODAL: Bio jugador -->
+<div class="modal-overlay" id="modal-bio">
+  <div class="modal bio-modal" style="position:relative">
+    <button onclick="closeModal('modal-bio')" style="position:absolute;top:16px;right:16px;background:none;border:none;color:#fff;cursor:pointer;font-size:20px;line-height:1;padding:4px 8px;z-index:5" title="Cerrar">&times;</button>
+    <div id="bio-content"></div>
+  </div>
+</div>
 
 <!-- MODAL: GIF picker -->
 <div class="modal-overlay" id="modal-gif">
@@ -899,7 +923,7 @@ async function renderPosiciones() {
       <div class="podio-bloque">
         <div class="pos-num">${posLabel}</div>
         <div class="pos-info">
-          <div class="pos-alias">${h(u.alias)}</div>
+          <div class="pos-alias bio-clickable" onclick="openBioModal('${u.id}')">${h(u.alias)}</div>
           <div class="pos-pts">${totalPts} PTS</div>
         </div>
       </div>
@@ -926,7 +950,7 @@ async function renderPosiciones() {
       ${gifHtml}
       <div class="banca-avatar" ${avatarClickable}>${u.avatar_url?`<img src="${u.avatar_url}" alt="">`:initials}</div>
       <div class="banca-seat">${SEAT_SVG}</div>
-      <div class="banca-line"><span class="pos">${i+4}°</span>${h(u.alias)} · ${totalPts}pts</div>
+      <div class="banca-line bio-clickable" onclick="openBioModal('${u.id}')"><span class="pos">${i+4}°</span>${h(u.alias)} · ${totalPts}pts</div>
     </div>`;
   };
   const bancaSeatVacio = () => `<div class="banca-spot empty"><div class="banca-seat">${SEAT_SVG}</div><div class="banca-line">·</div></div>`;
@@ -939,7 +963,7 @@ async function renderPosiciones() {
     ${dataConTotal.map((u,i) => `
       <div class="tabla-row pos-${i+1} ${cProfile?.id===u.id?'me':''}">
         <div class="pos-num">${i+1}</div>
-        <div class="user-cell">
+        <div class="user-cell bio-clickable" onclick="openBioModal('${u.id}')">
           <div class="mini-avatar">${u.avatar_url?`<img src="${u.avatar_url}" alt="">`:h(u.alias||'?').slice(0,2).toUpperCase()}</div>
           <span class="alias-txt">${h(u.alias)}${trofeoHtml(u.id)}${cProfile?.id===u.id?' <span style="font-size:11px;color:var(--lime)">(vos)</span>':''}</span>
         </div>
@@ -1004,6 +1028,85 @@ async function removeGif() {
   closeModal('modal-gif');
   toast('GIF eliminado', 'success');
   renderPosiciones();
+}
+
+// ===== BIO JUGADOR =====
+async function openBioModal(userId) {
+  const content = document.getElementById('bio-content');
+  content.innerHTML = '<div class="loading-txt" style="padding:60px 0;text-align:center">CARGANDO...</div>';
+  openModal('modal-bio');
+
+  const [{ data: profile }, { data: ediciones }, { data: pronos }, { data: cfgRows }] = await Promise.all([
+    sb.from('profiles').select('alias, avatar_url, gif_url, detalle').eq('id', userId).single(),
+    sb.from('ediciones').select('nombre, campeon_user_id, ultimo_user_id').or(`campeon_user_id.eq.${userId},ultimo_user_id.eq.${userId}`),
+    sb.from('pronosticos')
+      .select('puntos, partido_id, partidos!inner(fecha_hora, estado, equipo_local_id, equipo_visitante_id, equipos_local:equipos!equipo_local_id(nombre), equipos_vis:equipos!equipo_visitante_id(nombre))')
+      .eq('user_id', userId)
+      .eq('partidos.estado', 'finalizado')
+      .not('puntos', 'is', null),
+    sb.from('config').select('key,value'),
+  ]);
+
+  if (!profile) { content.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">No se encontró el jugador</div>'; return; }
+  const cfg = {}; (cfgRows||[]).forEach(r => cfg[r.key] = parseInt(r.value));
+
+  // Trofeos
+  const titulos = (ediciones||[]).filter(e => e.campeon_user_id === userId);
+  const ultimos = (ediciones||[]).filter(e => e.ultimo_user_id === userId);
+  const trofeosHtml = [
+    titulos.length ? `<div class="bio-trofeo-chip">🏆 ${titulos.length}° puesto x${titulos.length}</div>` : '',
+    ultimos.length ? `<div class="bio-trofeo-chip">🗑️ Último x${ultimos.length}</div>` : '',
+  ].filter(Boolean).join('');
+
+  // Estadísticas por equipo
+  const porEquipo = {}; // nombre -> { puntos, exactos, partidos }
+  const historial = []; // { fecha, puntos }
+  (pronos||[]).forEach(pr => {
+    const p = pr.partidos;
+    if (!p) return;
+    const equiposDelPartido = [p.equipos_local?.nombre, p.equipos_vis?.nombre].filter(Boolean);
+    equiposDelPartido.forEach(nombre => {
+      if (!porEquipo[nombre]) porEquipo[nombre] = { puntos: 0, exactos: 0, partidos: 0 };
+      porEquipo[nombre].puntos += pr.puntos || 0;
+      porEquipo[nombre].partidos += 1;
+      if (pr.puntos === cfg.pts_exacto || pr.puntos === cfg.pts_empate_exacto) porEquipo[nombre].exactos += 1;
+    });
+    historial.push({ fecha: p.fecha_hora, puntos: pr.puntos || 0 });
+  });
+  historial.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+  let mejorEquipoExactos = null, peorEquipoPuntos = null;
+  Object.entries(porEquipo).forEach(([nombre, s]) => {
+    if (!mejorEquipoExactos || s.exactos > mejorEquipoExactos.exactos) mejorEquipoExactos = { nombre, ...s };
+    if (s.partidos >= 2 && (!peorEquipoPuntos || s.puntos < peorEquipoPuntos.puntos)) peorEquipoPuntos = { nombre, ...s };
+  });
+
+  // Racha de partidos consecutivos sumando puntos, y partidos sin puntos
+  let racha = 0, mejorRacha = 0, sinPuntos = 0;
+  historial.forEach(h => {
+    if (h.puntos > 0) { racha++; mejorRacha = Math.max(mejorRacha, racha); }
+    else { racha = 0; sinPuntos++; }
+  });
+
+  const avatarHtml = profile.avatar_url
+    ? `<img src="${profile.avatar_url}" alt="">`
+    : h(profile.alias||'?').slice(0,2).toUpperCase();
+  const coverHtml = profile.gif_url
+    ? `<div class="bio-cover"><img src="${h(profile.gif_url)}" alt=""></div>`
+    : `<div class="bio-cover empty"></div>`;
+
+  content.innerHTML = `
+    ${coverHtml}
+    <div class="bio-avatar-wrap"><div class="bio-avatar">${avatarHtml}</div></div>
+    <div class="bio-alias">${h(profile.alias)}</div>
+    ${trofeosHtml ? `<div class="bio-trofeos">${trofeosHtml}</div>` : ''}
+    ${profile.detalle ? `<div class="bio-detalle">"${h(profile.detalle)}"</div>` : ''}
+    <div class="bio-stats">
+      <div class="bio-stat-row"><span class="bio-stat-label">⚽ Más aciertos exactos con</span><span class="bio-stat-val">${mejorEquipoExactos ? `${h(mejorEquipoExactos.nombre)} (${mejorEquipoExactos.exactos})` : '—'}</span></div>
+      <div class="bio-stat-row"><span class="bio-stat-label">📉 Menos puntos con</span><span class="bio-stat-val">${peorEquipoPuntos ? `${h(peorEquipoPuntos.nombre)} (${peorEquipoPuntos.puntos} pts)` : '—'}</span></div>
+      <div class="bio-stat-row"><span class="bio-stat-label">🔥 Mejor racha consecutiva</span><span class="bio-stat-val">${mejorRacha} partido${mejorRacha===1?'':'s'}</span></div>
+      <div class="bio-stat-row"><span class="bio-stat-label">💤 Partidos sin puntos</span><span class="bio-stat-val">${sinPuntos}</span></div>
+    </div>`;
 }
 
 // ===== FIXTURE =====
