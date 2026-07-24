@@ -166,8 +166,9 @@ select option{background:#1a1a1a}
 .bio-cover{width:100%;aspect-ratio:16/9;background:var(--surface2);position:relative;overflow:hidden}
 .bio-cover img{width:100%;height:100%;object-fit:cover}
 .bio-cover.empty{background:linear-gradient(135deg,var(--surface2),var(--surface))}
-.bio-avatar-wrap{display:flex;justify-content:center;margin-top:-40px;position:relative;z-index:2}
-.bio-avatar{width:80px;height:80px;border-radius:50%;border:4px solid var(--surface);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--lime);overflow:hidden}
+.bio-avatar-wrap{display:flex;justify-content:center;margin-top:-40px;position:relative;z-index:3}
+.bio-avatar{width:80px;height:80px;border-radius:50%;border:4px solid var(--surface);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--lime);overflow:hidden;transition:width .25s ease,height .25s ease;position:relative;z-index:3}
+.bio-avatar.expanded{width:200px;height:200px;font-size:50px}
 .bio-avatar img{width:100%;height:100%;object-fit:cover}
 .bio-alias{text-align:center;font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:.04em;margin-top:10px}
 .bio-trofeos{display:flex;justify-content:center;gap:10px;margin-top:12px;flex-wrap:wrap;padding:0 20px}
@@ -1103,7 +1104,7 @@ async function openBioModal(userId) {
   const avatarHtml = profile.avatar_url
     ? `<img src="${profile.avatar_url}" alt="">`
     : h(profile.alias||'?').slice(0,2).toUpperCase();
-  const avatarClick = profile.avatar_url ? `onclick="openLightbox('${profile.avatar_url}',event)" style="cursor:pointer"` : '';
+  const avatarClick = profile.avatar_url ? `onclick="toggleAvatarExpand(this,event)" style="cursor:pointer"` : '';
   const coverClick = profile.gif_url ? `onclick="openLightbox('${h(profile.gif_url)}',event)" style="cursor:pointer"` : '';
   const coverHtml = profile.gif_url
     ? `<div class="bio-cover" ${coverClick}><img src="${h(profile.gif_url)}" alt=""></div>`
@@ -1979,6 +1980,11 @@ function openLightbox(url, e) {
   if (!url) return;
   document.getElementById('lightbox-img').src = url;
   openModal('modal-lightbox');
+}
+
+function toggleAvatarExpand(el, e) {
+  if (e) e.stopPropagation();
+  el.classList.toggle('expanded');
 }
 document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); }));
 
