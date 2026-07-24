@@ -194,6 +194,7 @@ select option{background:#1a1a1a}
 .jornada-sep::before{content:'';flex:1;height:1px;background:var(--border2)}
 .jornada-sep:first-child{margin-top:0}
 .partido-card{position:relative;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:18px 20px;margin-bottom:8px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px}
+.partido-card.con-pts-card{grid-template-columns:1fr auto 1fr auto}
 .partido-card.comp-bg-sudamericana{background:linear-gradient(rgba(10,12,20,.72),rgba(10,12,20,.72)),url('COPAS/Sudamericana/BG.png');background-size:cover;background-position:center;border-color:rgba(220,148,53,.35)}
 .partido-card.comp-bg-libertadores{background:linear-gradient(rgba(8,8,10,.62),rgba(8,8,10,.62)),url('COPAS/Libertadores/BG.png');background-size:cover;background-position:center;border-color:rgba(212,175,55,.35)}
 .partido-card.comp-bg-liga{background:linear-gradient(rgba(10,10,14,.35),rgba(10,10,14,.35)),url('COPAS/LPF/BG_02.png');background-size:cover;background-position:center;border-color:rgba(108,200,225,.35)}
@@ -336,8 +337,9 @@ select option{background:#1a1a1a}
 .err-txt{color:var(--danger);font-size:13px;text-align:center;display:none}
 
 /* RESPONSIVE */
+.bottom-nav{display:none}
 @media(max-width:620px){
-  .partido-card{grid-template-columns:1fr;gap:10px}
+  .partido-card,.partido-card.con-pts-card{grid-template-columns:1fr;gap:10px}
   .p-equipo.right{flex-direction:row}
   .p-equipo.right .p-nombre{text-align:left}
   .p-centro{flex-direction:row;flex-wrap:wrap;justify-content:center;min-width:auto}
@@ -345,8 +347,14 @@ select option{background:#1a1a1a}
   .tabla-head,.tabla-row{grid-template-columns:38px 1fr 60px}
   .tabla-head>*:nth-child(n+4),.tabla-row>*:nth-child(n+4){display:none}
   .header-nav{display:none}
-  .app-content{padding:20px 16px}
+  .app-content{padding:20px 16px 90px}
+  .bottom-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border2);z-index:50;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
 }
+.bottom-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:var(--muted);font-family:'Bebas Neue',sans-serif;padding:6px 2px;cursor:pointer}
+.bottom-nav-btn .icon{font-size:19px;line-height:1}
+.bottom-nav-btn .label{font-size:10px;letter-spacing:.04em}
+.bottom-nav-btn.active{color:var(--lime)}
+
 </style>
 </head>
 <body>
@@ -486,6 +494,13 @@ select option{background:#1a1a1a}
     </div>
 
   </main>
+  <nav class="bottom-nav">
+    <button class="bottom-nav-btn active" onclick="showView('posiciones')" id="bnav-posiciones"><span class="icon">🏆</span><span class="label">Posiciones</span></button>
+    <button class="bottom-nav-btn" onclick="showView('fixture')" id="bnav-fixture"><span class="icon">📅</span><span class="label">Fixture</span></button>
+    <button class="bottom-nav-btn" onclick="showView('ediciones')" id="bnav-ediciones"><span class="icon">🎖️</span><span class="label">Ediciones</span></button>
+    <button class="bottom-nav-btn" onclick="showView('perfil')" id="bnav-perfil"><span class="icon">👤</span><span class="label">Perfil</span></button>
+    <button class="bottom-nav-btn" onclick="showView('admin')" id="bnav-admin" style="display:none"><span class="icon">⚙️</span><span class="label">Admin</span></button>
+  </nav>
 </div>
 
 <!-- MODAL: Importar -->
@@ -654,8 +669,10 @@ async function autoImportFixture() {
   try {
     const fnUrl = `${SB_URL}/functions/v1/importar-fixture`;
     const headers = { 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' };
+    // Nota: 'mundial' ya no se auto-importa — el torneo terminó y esa edición ya se cerró.
+    // Volver a importarlo re-crea partidos viejos ya jugados. Si hay otro Mundial en el futuro,
+    // reactivar acá.
     await Promise.all([
-      fetch(fnUrl, { method: 'POST', headers, body: JSON.stringify({ competicion: 'mundial' }) }),
       fetch(fnUrl, { method: 'POST', headers, body: JSON.stringify({ competicion: 'liga' }) }),
       fetch(fnUrl, { method: 'POST', headers, body: JSON.stringify({ competicion: 'libertadores' }) }),
       fetch(fnUrl, { method: 'POST', headers, body: JSON.stringify({ competicion: 'sudamericana' }) }),
@@ -722,6 +739,7 @@ function showApp() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-screen').style.display = 'block';
   document.getElementById('nav-admin').style.display = cProfile?.is_admin ? '' : 'none';
+  document.getElementById('bnav-admin').style.display = cProfile?.is_admin ? 'flex' : 'none';
   updateHdrAvatar();
   const lastView = localStorage.getItem('prode-view') || 'fixture';
   showView(lastView);
@@ -854,8 +872,10 @@ async function doLogout() { await sb.auth.signOut(); }
 function showView(view) {
   document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.bottom-nav-btn').forEach(el => el.classList.remove('active'));
   document.getElementById('view-'+view)?.classList.add('active');
   document.getElementById('nav-'+view)?.classList.add('active');
+  document.getElementById('bnav-'+view)?.classList.add('active');
   localStorage.setItem('prode-view', view);
   if (view==='posiciones') renderPosiciones();
   else if (view==='fixture') renderFixture();
@@ -1386,7 +1406,7 @@ function buildPartidoCard(p, prono, ctx) {
   const esVueltaAttr = p.partido_ida_id ? '1' : '0';
   const hayContenidoArriba = !!goleadoresHtml || p.estado === 'finalizado';
   const compWatermarkRow = compWatermark ? `<div style="grid-column:1/-1;display:flex;justify-content:flex-end;${hayContenidoArriba?'margin-top:-16px':'margin-top:-16px'}">${compWatermark}</div>` : '';
-  return `<div class="partido-card anim-enter ${compBgClass} ${p.estado==='finalizado'?'finalizado':''} ${p.estado==='en_juego'?'en-juego':''}" data-pid="${p.id}" data-fh="${p.fecha_hora||''}" data-min="${p.minuto||''}" data-min-at="${Date.now()}" data-es-vuelta="${esVueltaAttr}" data-ida-gl="${idaGlAttr}" data-ida-gv="${idaGvAttr}" style="animation-delay:${delay}ms;${p.estado==='finalizado'&&prono?'grid-template-columns:1fr auto 1fr auto':''}"${clickAttr}>
+  return `<div class="partido-card anim-enter ${compBgClass} ${p.estado==='finalizado'?'finalizado':''} ${p.estado==='en_juego'?'en-juego':''} ${p.estado==='finalizado'&&prono?'con-pts-card':''}" data-pid="${p.id}" data-fh="${p.fecha_hora||''}" data-min="${p.minuto||''}" data-min-at="${Date.now()}" data-es-vuelta="${esVueltaAttr}" data-ida-gl="${idaGlAttr}" data-ida-gv="${idaGvAttr}" style="animation-delay:${delay}ms"${clickAttr}>
     ${compBadge}
     <div class="p-equipo">${lImg}<span class="p-nombre">${h(p.local?.nombre||'Local')}</span></div>
     <div class="p-centro">${estadoHtml}${centroHtml}${pronoHtml}</div>

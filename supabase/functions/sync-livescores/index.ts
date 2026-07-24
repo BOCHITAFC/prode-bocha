@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
 
         // Buscar partido existente
         const { data: partidos } = await supabase
-          .from('partidos').select('id, es_eliminatorio')
+          .from('partidos').select('id, es_eliminatorio, goleadores')
           .eq('equipo_local_id', localEq.id)
           .eq('equipo_visitante_id', visEq.id)
           .eq('competicion', liga)
@@ -135,12 +135,18 @@ Deno.serve(async (req) => {
           }
         }
 
+        // No pisar goleadores con datos vacíos si ya teníamos algo cargado (evita perder goles por respuestas
+        // incompletas de Promiedos cuando el partido sale de la ronda "actual")
+        const nuevoTieneGoles = (goleadores.local?.length || 0) > 0 || (goleadores.visitante?.length || 0) > 0
+        const existenteTieneGoles = (partidos[0].goleadores?.local?.length || 0) > 0 || (partidos[0].goleadores?.visitante?.length || 0) > 0
+        const goleadoresFinal = (!nuevoTieneGoles && existenteTieneGoles) ? partidos[0].goleadores : goleadores
+
         const updatePayload: any = {
           goles_local: golesLocal,
           goles_visitante: golesVis,
           estado,
           minuto,
-          goleadores,
+          goleadores: goleadoresFinal,
         }
         if (ganadorPenalesId != null) updatePayload.ganador_penales_id = ganadorPenalesId
 
