@@ -1340,21 +1340,31 @@ function autoSaveProno(pid) {
 async function renderEdiciones() {
   const c = document.getElementById('ediciones-cont');
   const { data: ediciones } = await sb.from('ediciones')
-    .select('*, campeon:profiles!campeon_user_id(alias,avatar_url)')
+    .select('*, campeon:profiles!campeon_user_id(alias,avatar_url), ultimo:profiles!ultimo_user_id(alias,avatar_url)')
     .order('fecha_finalizada', { ascending: false });
   if (!ediciones?.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">🏆</div><div class="empty-txt">Aún no hay ediciones cerradas</div></div>'; return; }
+  const miniAvatar = (u) => u?.avatar_url
+    ? `<img src="${u.avatar_url}" alt="" style="width:40px;height:40px;border-radius:50%;object-fit:cover">`
+    : `<div style="width:40px;height:40px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:15px">${h(u?.alias||'?').slice(0,2).toUpperCase()}</div>`;
   c.innerHTML = ediciones.map(e => {
-    const av = e.campeon?.avatar_url
-      ? `<img src="${e.campeon.avatar_url}" alt="" style="width:48px;height:48px;border-radius:50%;object-fit:cover">`
-      : `<div style="width:48px;height:48px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:18px">${h(e.campeon?.alias||'?').slice(0,2).toUpperCase()}</div>`;
-    return `<div style="display:flex;align-items:center;gap:16px;padding:16px 20px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);margin-bottom:10px">
+    const ultimoHtml = e.ultimo ? `
+      <div style="display:flex;align-items:center;gap:10px;padding-left:16px;margin-left:16px;border-left:1px solid var(--border2)">
+        <div style="font-size:22px">🗑️</div>
+        ${miniAvatar(e.ultimo)}
+        <div>
+          <div style="font-size:11px;color:var(--muted);letter-spacing:.04em">ÚLTIMO</div>
+          <div style="font-size:13px;color:var(--danger)">${h(e.ultimo.alias)}</div>
+        </div>
+      </div>` : '';
+    return `<div style="display:flex;align-items:center;gap:16px;padding:16px 20px;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);margin-bottom:10px;flex-wrap:wrap">
       <div style="font-size:32px">🏆</div>
-      ${av}
-      <div style="flex:1">
+      ${miniAvatar(e.campeon).replace('40px','48px').replace('40px','48px')}
+      <div style="flex:1;min-width:160px">
         <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:.04em">${h(e.nombre)}</div>
         <div style="font-size:13px;color:var(--lime);margin-top:2px">Campeón: ${h(e.campeon?.alias||'?')} · ${e.puntos} pts</div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px">${new Date(e.fecha_finalizada).toLocaleDateString('es-AR',{day:'numeric',month:'long',year:'numeric'})}</div>
       </div>
+      ${ultimoHtml}
     </div>`;
   }).join('');
 }
