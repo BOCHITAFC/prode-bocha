@@ -170,8 +170,10 @@ select option{background:#1a1a1a}
 .bio-avatar{width:80px;height:80px;border-radius:50%;border:4px solid var(--surface);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--lime);overflow:hidden}
 .bio-avatar img{width:100%;height:100%;object-fit:cover}
 .bio-alias{text-align:center;font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:.04em;margin-top:10px}
-.bio-trofeos{display:flex;justify-content:center;gap:16px;margin-top:8px;flex-wrap:wrap;padding:0 20px}
-.bio-trofeo-chip{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);background:var(--surface2);padding:5px 10px;border-radius:20px}
+.bio-trofeos{display:flex;justify-content:center;gap:10px;margin-top:12px;flex-wrap:wrap;padding:0 20px}
+.bio-trofeo-item{display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--surface2);padding:8px 10px;border-radius:var(--r2);min-width:64px}
+.bio-trofeo-item .icon{font-size:20px}
+.bio-trofeo-item .nombre{font-size:9px;color:var(--muted);letter-spacing:.03em;text-align:center;line-height:1.2;white-space:nowrap}
 .bio-detalle{text-align:center;font-size:13px;color:var(--text-dim);line-height:1.5;padding:14px 24px 4px;font-style:italic}
 .bio-stats{padding:16px 20px 20px;display:flex;flex-direction:column;gap:10px}
 .bio-stat-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface2);border-radius:var(--r2);font-size:13px}
@@ -1050,13 +1052,12 @@ async function openBioModal(userId) {
   if (!profile) { content.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">No se encontró el jugador</div>'; return; }
   const cfg = {}; (cfgRows||[]).forEach(r => cfg[r.key] = parseInt(r.value));
 
-  // Trofeos
-  const titulos = (ediciones||[]).filter(e => e.campeon_user_id === userId);
-  const ultimos = (ediciones||[]).filter(e => e.ultimo_user_id === userId);
-  const trofeosHtml = [
-    titulos.length ? `<div class="bio-trofeo-chip">🏆 ${titulos.length}° puesto x${titulos.length}</div>` : '',
-    ultimos.length ? `<div class="bio-trofeo-chip">🗑️ Último x${ultimos.length}</div>` : '',
-  ].filter(Boolean).join('');
+  // Trofeos: una copa por cada edición donde salió 1° o último
+  const trofeosHtml = (ediciones||[]).map(e => `
+    <div class="bio-trofeo-item">
+      <div class="icon">${e.campeon_user_id === userId ? '🏆' : '🗑️'}</div>
+      <div class="nombre">${h(e.nombre)}</div>
+    </div>`).join('');
 
   // Estadísticas por equipo
   const porEquipo = {}; // nombre -> { puntos, exactos, partidos }
