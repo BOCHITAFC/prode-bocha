@@ -1296,7 +1296,7 @@ function buildPartidoCard(p, prono, ctx) {
     }
   } else if (p.estado === 'en_juego') {
     estadoHtml = `<span class="estado-badge estado-en-juego">${minutoEnVivo(p.fecha_hora, p.minuto, Date.now()) || '● EN VIVO'}</span>`;
-    centroHtml = `<div class="score-display"><span class="score-big">${p.goles_local??'0'}</span><span class="score-dash">-</span><span class="score-big">${p.goles_visitante??'0'}</span></div>`;
+    centroHtml = `<div class="score-display"><span class="score-big" style="color:var(--lime)">${p.goles_local??'0'}</span><span class="score-dash">-</span><span class="score-big" style="color:var(--lime)">${p.goles_visitante??'0'}</span></div>`;
     if (prono) pronoHtml = `<span class="prono-badge" style="color:var(--muted);font-size:11px">Mi pronóstico: ${prono.goles_local}-${prono.goles_visitante}</span>`;
   } else {
     estadoHtml = `<span class="estado-badge estado-pendiente">${fechaStr}</span>`;
