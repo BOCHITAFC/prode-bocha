@@ -465,8 +465,7 @@ select option{background:#1a1a1a}
           <span></span>
           <div style="display:flex;gap:8px">
             <button class="btn btn-ghost btn-sm" onclick="openImportModal('liga')">↓ Importar Liga</button>
-            <button class="btn btn-ghost btn-sm" onclick="openImportModal('mundial')">↓ Importar Mundial</button>
-            <button class="btn btn-ghost btn-sm" id="btn-sync-live" onclick="syncLivescores('mundial')" style="color:var(--lime);border-color:var(--lime)">⟳ Sync en vivo</button>
+            <button class="btn btn-ghost btn-sm" id="btn-sync-live" onclick="syncLivescoresTodas()" style="color:var(--lime);border-color:var(--lime)">⟳ Sync en vivo</button>
           </div>
         </div>
         <div id="admin-partidos-list"><div class="loading-txt">CARGANDO...</div></div>
@@ -1918,20 +1917,19 @@ function openImportModal(competicion = 'liga') {
   openModal('modal-import');
 }
 
-async function syncLivescores(liga = 'mundial') {
+async function syncLivescoresTodas() {
+  // Ya no incluye 'mundial' — esa edición cerró y no se vuelve a importar/sincronizar
   const btn = document.getElementById('btn-sync-live');
   btn.textContent = '⟳ Sincronizando...'; btn.disabled = true;
   try {
-    const res = await fetch(`${SB_URL}/functions/v1/sync-livescores`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ liga })
-    });
-    const result = await res.json();
-    if (!result.ok) throw new Error(result.error || 'Error desconocido');
-    const actualizados = result.partidos_procesados?.filter(p => p.actualizado).length ?? 0;
-    const total = result.partidos_procesados?.length ?? 0;
-    toast(`Sync OK — ${actualizados}/${total} partidos actualizados`, 'success');
+    const headers = { 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' };
+    const ligas = ['liga', 'libertadores', 'sudamericana'];
+    const results = await Promise.all(ligas.map(liga =>
+      fetch(`${SB_URL}/functions/v1/sync-livescores`, { method: 'POST', headers, body: JSON.stringify({ liga }) })
+        .then(r => r.json()).catch(() => ({ ok: false }))
+    ));
+    const totalActualizados = results.reduce((sum, r) => sum + (r.actualizados || 0), 0);
+    toast(`Sync OK — ${totalActualizados} partidos actualizados`, 'success');
     renderAdminPartidos();
   } catch (err) {
     toast('Error sync: ' + err.message, 'error');
