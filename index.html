@@ -1242,11 +1242,14 @@ function esIdaConVuelta(p, ctx) {
 // Calcula si la predicción (propia) da empate en el global. Para partido único: empate del propio partido.
 // Para vuelta: suma la predicción de ida (guardada) + predicción actual de vuelta (inputs en vivo o prono guardado).
 function calcEmpateGlobal(p, prono, ctx, vueltaGl, vueltaGv) {
-  if (p.partido_ida_id && ctx?.pm) {
-    const pronoIda = ctx.pm[p.partido_ida_id];
-    const idaGl = parseInt(pronoIda?.goles_local);
-    const idaGv = parseInt(pronoIda?.goles_visitante);
-    if (isNaN(idaGl) || isNaN(idaGv) || isNaN(vueltaGl) || isNaN(vueltaGv)) return false;
+  if (p.partido_ida_id) {
+    // Preferir el resultado REAL de la ida (si ya se jugó) por sobre la predicción del usuario para ese partido —
+    // una vez jugada la ida, el global se compone del resultado real + lo que el usuario predice para la vuelta.
+    const idaReal = ctx?.idaMap?.[p.partido_ida_id];
+    const idaFinalizada = idaReal?.estado === 'finalizado';
+    const idaGl = idaFinalizada ? idaReal.goles_local : parseInt(ctx?.pm?.[p.partido_ida_id]?.goles_local);
+    const idaGv = idaFinalizada ? idaReal.goles_visitante : parseInt(ctx?.pm?.[p.partido_ida_id]?.goles_visitante);
+    if (idaGl == null || idaGv == null || isNaN(idaGl) || isNaN(idaGv) || isNaN(vueltaGl) || isNaN(vueltaGv)) return false;
     // La vuelta tiene los equipos invertidos respecto a la ida (garantizado por el detector de llaves)
     const totalLocalVuelta = idaGv + vueltaGl; // equipo que es local en la vuelta = visitante en la ida
     const totalVisitanteVuelta = idaGl + vueltaGv; // equipo que es visitante en la vuelta = local en la ida
@@ -1399,9 +1402,12 @@ function buildPartidoCard(p, prono, ctx) {
     : p.competicion === 'liga'
     ? `<img class="comp-watermark" src="COPAS/LPF/logo_LPF.svg" alt="">`
     : '';
+  // Para el global de la llave: usar el resultado REAL de la ida si ya se jugó, sino la predicción del usuario
+  const idaRealCtx = p.partido_ida_id ? ctx?.idaMap?.[p.partido_ida_id] : null;
+  const idaFinalizadaCtx = idaRealCtx?.estado === 'finalizado';
   const pronoIdaCtx = p.partido_ida_id ? ctx?.pm?.[p.partido_ida_id] : null;
-  const idaGlAttr = pronoIdaCtx?.goles_local ?? '';
-  const idaGvAttr = pronoIdaCtx?.goles_visitante ?? '';
+  const idaGlAttr = idaFinalizadaCtx ? (idaRealCtx.goles_local ?? '') : (pronoIdaCtx?.goles_local ?? '');
+  const idaGvAttr = idaFinalizadaCtx ? (idaRealCtx.goles_visitante ?? '') : (pronoIdaCtx?.goles_visitante ?? '');
   const esVueltaAttr = p.partido_ida_id ? '1' : '0';
   const hayContenidoArriba = !!goleadoresHtml || p.estado === 'finalizado';
   const compWatermarkRow = compWatermark ? `<div style="grid-column:1/-1;display:flex;justify-content:flex-end;${hayContenidoArriba?'margin-top:-16px':'margin-top:-16px'}">${compWatermark}</div>` : '';
