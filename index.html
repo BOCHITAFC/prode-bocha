@@ -1409,12 +1409,15 @@ function buildPartidoCard(p, prono, ctx) {
   const idaGlAttr = idaFinalizadaCtx ? (idaRealCtx.goles_local ?? '') : (pronoIdaCtx?.goles_local ?? '');
   const idaGvAttr = idaFinalizadaCtx ? (idaRealCtx.goles_visitante ?? '') : (pronoIdaCtx?.goles_visitante ?? '');
   const esVueltaAttr = p.partido_ida_id ? '1' : '0';
+  const globalHint = (p.partido_ida_id && idaGlAttr !== '' && idaGvAttr !== '')
+    ? `<div style="font-size:11px;color:var(--muted);letter-spacing:.04em;text-align:center;margin-bottom:2px">${idaFinalizadaCtx?'IDA':'IDA (mi pronóstico)'}: ${idaGvAttr} - ${idaGlAttr}</div>`
+    : '';
   const hayContenidoArriba = !!goleadoresHtml || p.estado === 'finalizado';
   const compWatermarkRow = compWatermark ? `<div style="grid-column:1/-1;display:flex;justify-content:flex-end;${hayContenidoArriba?'margin-top:-16px':'margin-top:-16px'}">${compWatermark}</div>` : '';
   return `<div class="partido-card anim-enter ${compBgClass} ${p.estado==='finalizado'?'finalizado':''} ${p.estado==='en_juego'?'en-juego':''} ${p.estado==='finalizado'&&prono?'con-pts-card':''}" data-pid="${p.id}" data-fh="${p.fecha_hora||''}" data-min="${p.minuto||''}" data-min-at="${Date.now()}" data-es-vuelta="${esVueltaAttr}" data-ida-gl="${idaGlAttr}" data-ida-gv="${idaGvAttr}" style="animation-delay:${delay}ms"${clickAttr}>
     ${compBadge}
     <div class="p-equipo">${lImg}<span class="p-nombre">${h(p.local?.nombre||'Local')}</span></div>
-    <div class="p-centro">${estadoHtml}${centroHtml}${pronoHtml}</div>
+    <div class="p-centro">${globalHint}${estadoHtml}${centroHtml}${pronoHtml}</div>
     <div class="p-equipo right">${vImg}<span class="p-nombre">${h(p.visitante?.nombre||'Visitante')}</span></div>
     ${penalHintHtml(p, prono, puedePredecir, ctx)}
     ${ptsCardHtml}
