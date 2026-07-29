@@ -1434,8 +1434,9 @@ async function togglePronos(card, partidoId) {
   panel.classList.add('open');
   if (panel.dataset.loaded === '1') return;
   const { data } = await sb.from('pronosticos')
-    .select('goles_local,goles_visitante,puntos,profiles!inner(alias,avatar_url,id)')
+    .select('goles_local,goles_visitante,puntos,profiles!inner(alias,avatar_url,id,is_admin)')
     .eq('partido_id', partidoId)
+    .eq('profiles.is_admin', false)
     .order('puntos', { ascending: false });
   panel.dataset.loaded = '1';
   const list = panel.querySelector('.pronos-list');

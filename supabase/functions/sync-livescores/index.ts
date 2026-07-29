@@ -12,14 +12,40 @@ const URLS: Record<string, string> = {
   sudamericana: 'https://www.promiedos.com.ar/league/conmebol-sudamericana/dij',
 }
 
+// Promiedos → nombre canónico en BD (mismo diccionario que importar-fixture)
+const ALIASES: Record<string, string> = {
+  'central cordoba sde': 'central cordoba',
+  'central cordoba santiago del estero': 'central cordoba',
+  'deportivo riestra': 'riestra',
+  'estudiantes de la plata': 'estudiantes',
+  'estudiantes la plata': 'estudiantes',
+  'estudiantes lp': 'estudiantes',
+  'estudiantes de rio cuarto': 'estudiantes rc',
+  'estudiantes rio cuarto': 'estudiantes rc',
+  'gimnasia la plata': 'gimnasia lp',
+  'gimnasia y esgrima la plata': 'gimnasia lp',
+  'gimnasia de la plata': 'gimnasia lp',
+  'gimnasia de mendoza': 'gimnasia mendoza',
+  'gimnasia y esgrima mendoza': 'gimnasia mendoza',
+  'gimnasia y esgrima de mendoza': 'gimnasia mendoza',
+  'sarmiento junin': 'sarmiento',
+  'sarmiento de junin': 'sarmiento',
+  'talleres de cordoba': 'talleres',
+  'union de santa fe': 'union',
+  'union santa fe': 'union',
+  'velez sarsfield': 'velez sarsfield',
+  'newells old boys': "newells old boys",
+}
+
 function norm(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim()
 }
 
 function matchEquipo(name: string, equipos: any[]): any | null {
-  const n = norm(name)
-  return equipos.find(e => norm(e.nombre) === n) || null
+  const raw = norm(name)
+  const target = ALIASES[raw] || raw
+  return equipos.find(e => norm(e.nombre) === target) || null
 }
 
 Deno.serve(async (req) => {
