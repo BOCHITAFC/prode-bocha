@@ -195,6 +195,8 @@ select option{background:#1a1a1a}
 .jornada-sep:first-child{margin-top:0}
 .partido-card{position:relative;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:18px 20px;margin-bottom:8px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px}
 .partido-card.con-pts-card{grid-template-columns:1fr auto 1fr auto}
+.partido-card.card-clickable{cursor:pointer;transition:border-color .15s,background .15s}
+.partido-card.card-clickable:hover{border-color:var(--lime)}
 .partido-card.comp-bg-sudamericana{background:linear-gradient(rgba(10,12,20,.72),rgba(10,12,20,.72)),url('COPAS/Sudamericana/BG.png');background-size:cover;background-position:center;border-color:rgba(220,148,53,.35)}
 .partido-card.comp-bg-libertadores{background:linear-gradient(rgba(8,8,10,.62),rgba(8,8,10,.62)),url('COPAS/Libertadores/BG.png');background-size:cover;background-position:center;border-color:rgba(212,175,55,.35)}
 .partido-card.comp-bg-liga{background:linear-gradient(rgba(10,10,14,.35),rgba(10,10,14,.35)),url('COPAS/LPF/BG_02.png');background-size:cover;background-position:center;border-color:rgba(108,200,225,.35)}
@@ -220,6 +222,22 @@ select option{background:#1a1a1a}
 .pronos-list .prono-pts.p2{color:#7B9EFF}
 .pronos-list .prono-pts.p0{color:var(--text-dim)}
 .pronos-list .prono-loading{text-align:center;color:var(--muted);font-size:11px;padding:8px;letter-spacing:.1em}
+.tabla-mini-panel{grid-column:1/-1;overflow:hidden;max-height:0;transition:max-height .3s ease}
+.tabla-mini-panel.open{max-height:260px}
+.tabla-mini-wrap{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 0 2px;border-top:1px solid var(--border2)}
+.tabla-mini-box{background:var(--surface2);border-radius:var(--r2);padding:10px 12px}
+.tabla-mini-box .tmb-grupo{font-size:10px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+.tabla-mini-box .tmb-pos{font-family:'Bebas Neue',sans-serif;font-size:26px;color:var(--lime);line-height:1}
+.tabla-mini-box .tmb-nombre{font-size:12px;color:var(--text-dim);margin-bottom:8px}
+.tabla-mini-stats{display:flex;gap:10px;font-size:11px;color:var(--muted)}
+.tabla-mini-stats b{color:var(--text);font-family:'Bebas Neue',sans-serif;font-size:14px;display:block}
+.tabla-mini-loading{grid-column:1/-1;text-align:center;color:var(--muted);font-size:11px;padding:12px;letter-spacing:.1em}
+.rival-escudo{width:24px;height:24px;object-fit:contain;flex-shrink:0}
+.rival-escudo-ph{width:24px;height:24px;border-radius:50%;background:var(--surface2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:10px;font-family:'Bebas Neue',sans-serif;flex-shrink:0;filter:grayscale(1)}
+.tmb-proximo{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0}
+.tmb-proximo-label{font-size:9px;color:var(--lime);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.tmb-proximo .rival-escudo{width:44px;height:44px}
+.tmb-proximo .rival-escudo-ph{width:44px;height:44px;font-size:15px}
 .p-equipo{display:flex;align-items:center;gap:10px}
 .p-equipo.right{flex-direction:row-reverse}
 .escudo{width:42px;height:42px;object-fit:contain;flex-shrink:0;opacity:0;transition:opacity .4s ease,transform .4s ease;transform:scale(.85)}
@@ -349,6 +367,10 @@ select option{background:#1a1a1a}
   .header-nav{display:none}
   .app-content{padding:20px 16px 90px}
   .bottom-nav{display:flex;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border2);z-index:50;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+  .tabla-mini-wrap{grid-template-columns:1fr}
+  .tabla-mini-panel.open{max-height:520px}
+  .tabla-mini-box{flex-direction:column;align-items:stretch!important;gap:8px}
+  .tmb-proximo{flex-direction:row;justify-content:center;gap:8px;border-top:1px solid var(--border2);padding-top:8px;margin-top:2px}
 }
 .bottom-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:var(--muted);font-family:'Bebas Neue',sans-serif;padding:6px 2px;cursor:pointer}
 .bottom-nav-btn .icon{font-size:19px;line-height:1}
@@ -1338,7 +1360,7 @@ function buildPartidoCard(p, prono, ctx) {
     estadoHtml = `<span class="estado-badge estado-pendiente">${fechaStr}</span>`;
     if (puedePredecir) {
       const gl = prono?.goles_local??'', gv = prono?.goles_visitante??'';
-      centroHtml = `<div class="score-inputs">
+      centroHtml = `<div class="score-inputs" onclick="event.stopPropagation()">
         ${penalCheckHtml(p, prono, puedePredecir, 'left', ctx)}
         <input type="number" class="score-in" id="sl-${p.id}" value="${gl}" min="0" max="30" placeholder="0" oninput="autoSaveProno(${p.id})">
         <span class="score-sep">-</span>
@@ -1391,7 +1413,16 @@ function buildPartidoCard(p, prono, ctx) {
     }
   }
 
-  const clickAttr = p.estado === 'finalizado' ? ` onclick="togglePronos(this,${p.id})"` : '';
+  const finalizadoAttr = p.estado === 'finalizado' ? '1' : '0';
+  const localNombreAttr = h(p.local?.nombre || '').replace(/'/g, "\\'");
+  const visNombreAttr = h(p.visitante?.nombre || '').replace(/'/g, "\\'");
+  const esCopaSeguida = ['liga', 'libertadores', 'sudamericana'].includes(p.competicion);
+  const esEliminatorioAttr = p.es_eliminatorio ? '1' : '0';
+  const esClickeable = p.estado === 'finalizado' || esCopaSeguida;
+  const clickAttr = esClickeable
+    ? ` onclick="toggleCardClick(this,${p.id},'${p.competicion}',${finalizadoAttr},'${localNombreAttr}','${visNombreAttr}',${esEliminatorioAttr},${p.equipo_local_id||'null'},${p.equipo_visitante_id||'null'},'${p.fecha_hora||''}')"`
+    : '';
+  const clickableClass = esClickeable ? 'card-clickable' : '';
   const compLabel = COMP_LABELS[p.competicion] || '';
   const compBadge = compLabel ? `<div class="comp-badge comp-${p.competicion}">${compLabel}</div>` : '';
   const compBgClass = p.competicion === 'sudamericana' ? 'comp-bg-sudamericana' : p.competicion === 'libertadores' ? 'comp-bg-libertadores' : p.competicion === 'liga' ? 'comp-bg-liga' : '';
@@ -1414,7 +1445,7 @@ function buildPartidoCard(p, prono, ctx) {
     : '';
   const hayContenidoArriba = !!goleadoresHtml || p.estado === 'finalizado';
   const compWatermarkRow = compWatermark ? `<div style="grid-column:1/-1;display:flex;justify-content:flex-end;${hayContenidoArriba?'margin-top:-16px':'margin-top:-16px'}">${compWatermark}</div>` : '';
-  return `<div class="partido-card anim-enter ${compBgClass} ${p.estado==='finalizado'?'finalizado':''} ${p.estado==='en_juego'?'en-juego':''} ${p.estado==='finalizado'&&prono?'con-pts-card':''}" data-pid="${p.id}" data-fh="${p.fecha_hora||''}" data-min="${p.minuto||''}" data-min-at="${Date.now()}" data-es-vuelta="${esVueltaAttr}" data-ida-gl="${idaGlAttr}" data-ida-gv="${idaGvAttr}" style="animation-delay:${delay}ms"${clickAttr}>
+  return `<div class="partido-card anim-enter ${compBgClass} ${clickableClass} ${p.estado==='finalizado'?'finalizado':''} ${p.estado==='en_juego'?'en-juego':''} ${p.estado==='finalizado'&&prono?'con-pts-card':''}" data-pid="${p.id}" data-fh="${p.fecha_hora||''}" data-min="${p.minuto||''}" data-min-at="${Date.now()}" data-es-vuelta="${esVueltaAttr}" data-ida-gl="${idaGlAttr}" data-ida-gv="${idaGvAttr}" style="animation-delay:${delay}ms"${clickAttr}>
     ${compBadge}
     <div class="p-equipo">${lImg}<span class="p-nombre">${h(p.local?.nombre||'Local')}</span></div>
     <div class="p-centro">${globalHint}${estadoHtml}${centroHtml}${pronoHtml}</div>
@@ -1425,6 +1456,178 @@ function buildPartidoCard(p, prono, ctx) {
     ${p.estado==='finalizado'?'<div class="pronos-panel" data-loaded="0"><div class="pronos-list"><div class="prono-loading">CARGANDO...</div></div></div>':''}
     ${compWatermarkRow}
   </div>`;
+}
+
+// ===== TABLA MINI (posiciones) + BRACKET (próximo rival en llaves) =====
+const _standingsCache = {};
+const _bracketCache = {};
+let _todosEquiposCache = null;
+function normClient(s) {
+  return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
+}
+async function buscarEscudoEquipo(nombre) {
+  if (!_todosEquiposCache) {
+    const { data } = await sb.from('equipos').select('nombre, escudo_url');
+    _todosEquiposCache = data || [];
+  }
+  const target = normClient(nombre);
+  const eq = _todosEquiposCache.find(e => normClient(e.nombre) === target);
+  return eq?.escudo_url || null;
+}
+function toggleCardClick(card, partidoId, competicion, finalizado, localNombre, visNombre, esEliminatorio, localId, visId, fechaHora) {
+  if (finalizado) togglePronos(card, partidoId);
+  if (esEliminatorio) toggleBracketInfo(card, competicion, localNombre, visNombre);
+  else toggleTablaLiga(card, competicion, localNombre, visNombre, partidoId, localId, visId, fechaHora);
+}
+
+// Busca el próximo partido pendiente de un equipo en la misma competencia (para mostrar su siguiente rival)
+async function proximoRivalDe(equipoId, competicion, fechaDesde, partidoActualId) {
+  if (!equipoId) return null;
+  const { data } = await sb.from('partidos')
+    .select('id, equipo_local_id, equipo_visitante_id, fecha_hora, local:equipos!equipo_local_id(nombre,escudo_url), visitante:equipos!equipo_visitante_id(nombre,escudo_url)')
+    .eq('competicion', competicion)
+    .eq('estado', 'pendiente')
+    .or(`equipo_local_id.eq.${equipoId},equipo_visitante_id.eq.${equipoId}`)
+    .neq('id', partidoActualId)
+    .gt('fecha_hora', fechaDesde || new Date(0).toISOString())
+    .order('fecha_hora', { ascending: true })
+    .limit(1);
+  const partido = data?.[0];
+  if (!partido) return null;
+  return partido.equipo_local_id === equipoId ? partido.visitante : partido.local;
+}
+
+async function toggleBracketInfo(card, competicion, localNombre, visNombre) {
+  let panel = card.querySelector('.tabla-mini-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.className = 'tabla-mini-panel';
+    panel.innerHTML = '<div class="tabla-mini-loading">CARGANDO...</div>';
+    card.appendChild(panel);
+  }
+  const isOpen = panel.classList.toggle('open');
+  if (!isOpen || panel.dataset.loaded === '1') return;
+
+  const cacheKey = `${competicion}|${localNombre}|${visNombre}`;
+  let data = _bracketCache[cacheKey];
+  if (!data) {
+    try {
+      const res = await fetch(`${SB_URL}/functions/v1/bracket-info`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ competicion, local: localNombre, visitante: visNombre })
+      });
+      data = await res.json();
+      _bracketCache[cacheKey] = data;
+    } catch (err) {
+      panel.innerHTML = `<div class="tabla-mini-loading">Error al cargar</div>`;
+      return;
+    }
+  }
+  panel.dataset.loaded = '1';
+
+  if (!data.ok || !data.hayBrackets || !data.encontrado) {
+    panel.innerHTML = `<div class="tabla-mini-loading">Información de llave no disponible</div>`;
+    return;
+  }
+  if (!data.faseSiguiente) {
+    panel.innerHTML = `<div class="tabla-mini-loading">Última instancia del torneo</div>`;
+    return;
+  }
+
+  let escudoHtml = `<div class="rival-escudo-ph">?</div>`;
+  let nombreMostrar = 'A definir';
+  if (data.rivalDefinido && data.rival) {
+    nombreMostrar = data.rival;
+    const escudoUrl = await buscarEscudoEquipo(data.rival);
+    escudoHtml = escudoUrl
+      ? `<img class="rival-escudo" src="${escudoUrl}" alt="">`
+      : `<div class="rival-escudo-ph">${h(data.rival).slice(0,2).toUpperCase()}</div>`;
+  }
+
+  panel.innerHTML = `<div class="tabla-mini-wrap" style="grid-template-columns:1fr">
+    <div class="tabla-mini-box" style="text-align:center">
+      <div class="tmb-grupo">Si gana, en ${h(data.faseSiguiente)} enfrenta a</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px">
+        ${escudoHtml}
+        <div class="tmb-pos" style="font-size:20px">${h(nombreMostrar)}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function toggleTablaLiga(card, competicion, localNombre, visNombre, partidoId, localId, visId, fechaHora) {
+  let panel = card.querySelector('.tabla-mini-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.className = 'tabla-mini-panel';
+    panel.innerHTML = '<div class="tabla-mini-loading">CARGANDO...</div>';
+    card.appendChild(panel);
+  }
+  const isOpen = panel.classList.toggle('open');
+  if (!isOpen || panel.dataset.loaded === '1') return;
+
+  const cacheKey = `${competicion}|${localNombre}|${visNombre}`;
+  let data = _standingsCache[cacheKey];
+  if (!data) {
+    try {
+      const res = await fetch(`${SB_URL}/functions/v1/standings-liga`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ competicion, local: localNombre, visitante: visNombre })
+      });
+      data = await res.json();
+      _standingsCache[cacheKey] = data;
+    } catch (err) {
+      panel.innerHTML = `<div class="tabla-mini-loading">Error al cargar la tabla</div>`;
+      return;
+    }
+  }
+  panel.dataset.loaded = '1';
+
+  if (!data.ok) { panel.innerHTML = `<div class="tabla-mini-loading">No se pudo cargar la tabla</div>`; return; }
+  if (!data.local && !data.visitante) {
+    panel.innerHTML = `<div class="tabla-mini-loading">Fase de grupos finalizada</div>`;
+    return;
+  }
+
+  // Buscar próximo rival de cada equipo (en paralelo)
+  const [proxLocal, proxVis] = await Promise.all([
+    proximoRivalDe(localId, competicion, fechaHora, partidoId),
+    proximoRivalDe(visId, competicion, fechaHora, partidoId),
+  ]);
+
+  const proximoRivalHtml = (prox) => {
+    if (!prox) return '';
+    const escudo = prox.escudo_url
+      ? `<img class="rival-escudo" src="${prox.escudo_url}" alt="">`
+      : `<div class="rival-escudo-ph">${h(prox.nombre||'?').slice(0,2).toUpperCase()}</div>`;
+    return `<div class="tmb-proximo">
+      <div class="tmb-proximo-label">Próximo rival</div>
+      ${escudo}
+    </div>`;
+  };
+
+  const box = (equipoNombre, s, prox) => {
+    if (!s) return `<div class="tabla-mini-box"><div class="tmb-nombre">${h(equipoNombre)}</div><div class="tabla-mini-loading" style="padding:4px 0">Sin datos</div></div>`;
+    return `<div class="tabla-mini-box" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div>
+        <div class="tmb-grupo">${h(s.grupo || 'Tabla')}</div>
+        <div class="tmb-pos">${s.posicion}°</div>
+        <div class="tmb-nombre">${h(equipoNombre)}</div>
+        <div class="tabla-mini-stats">
+          <div>PTS<b>${s.pts ?? '-'}</b></div>
+          <div>J<b>${s.j ?? '-'}</b></div>
+          <div>G<b>${s.g ?? '-'}</b></div>
+          <div>E<b>${s.e ?? '-'}</b></div>
+          <div>P<b>${s.p ?? '-'}</b></div>
+        </div>
+      </div>
+      ${proximoRivalHtml(prox)}
+    </div>`;
+  };
+  panel.innerHTML = `<div class="tabla-mini-wrap">${box(localNombre, data.local, proxLocal)}${box(visNombre, data.visitante, proxVis)}</div>`;
 }
 
 async function togglePronos(card, partidoId) {
