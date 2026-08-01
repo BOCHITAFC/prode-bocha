@@ -142,10 +142,13 @@ Deno.serve(async (req) => {
 
     for (const round of rounds) {
       const games: any[] = round.games
-      const roundName: string = round.games?.[0]?.stage_round_name || round.name || 'Fecha'
-      const roundNum = parseInt(roundName.replace(/\D/g, '')) || null
 
       for (const game of games) {
+        // Leer la fecha/ronda POR PARTIDO (no por lote) — un mismo fetch de "latest" puede mezclar
+        // partidos de distintas fechas si hay reprogramados, y cada uno trae su propio stage_round_name
+        const roundName: string = game.stage_round_name || round.name || 'Fecha'
+        const roundNum = parseInt(roundName.replace(/\D/g, '')) || null
+
         const homeTeamName = game.teams?.[0]?.name
         const awayTeamName = game.teams?.[1]?.name
         if (!homeTeamName || !awayTeamName) continue
@@ -208,14 +211,18 @@ Deno.serve(async (req) => {
           visitante: mapGoles(game.teams?.[1]?.goals),
         }
 
-        // Buscar partido existente por (local, visitante, competicion, fecha_hora)
-        const { data: existente } = await supabase.from('partidos')
+        // Buscar partido existente por (local, visitante, competicion) — SIN exigir fecha_hora exacta,
+        // ya que Promiedos puede reprogramar el horario entre imports y eso generaba duplicados.
+        // Un mismo par de equipos en el mismo orden local/visitante no se repite dentro de una misma
+        // competición salvo llaves ida/vuelta (que ya se distinguen porque invierten local/visitante).
+        const { data: existentes } = await supabase.from('partidos')
           .select('id')
           .eq('equipo_local_id', localEq.id)
           .eq('equipo_visitante_id', visEq.id)
           .eq('competicion', competicion)
-          .eq('fecha_hora', fechaHora)
-          .maybeSingle()
+          .order('fecha_hora', { ascending: false })
+          .limit(1)
+        const existente = existentes?.[0] || null
 
         const payload = {
           equipo_local_id: localEq.id,
