@@ -196,6 +196,14 @@ select option{background:#1a1a1a}
 .partido-card{position:relative;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:18px 20px;margin-bottom:8px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px}
 .partido-card.con-pts-card{grid-template-columns:1fr auto 1fr auto}
 .partido-card.card-clickable{cursor:pointer;transition:border-color .15s,background .15s}
+.ftab-wrap{position:relative;display:flex;gap:0;margin-bottom:24px;border-bottom:2px solid var(--border)}
+.ftab-btn{background:none;border:none;padding:10px 20px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:.1em;cursor:pointer;transition:color .2s ease}
+.ftab-indicator{position:absolute;bottom:-2px;left:0;width:0;height:2px;background:var(--lime);transition:left .18s ease,width .18s ease}
+.ftab-indicator.no-anim{transition:none}
+.fixture-cont-anim{transition:opacity .18s ease,transform .18s ease}
+.fixture-cont-anim.fx-notransition{transition:none}
+.fixture-cont-anim.fx-left{opacity:0;transform:translateX(-16px)}
+.fixture-cont-anim.fx-right{opacity:0;transform:translateX(16px)}
 .partido-card.card-clickable:hover{border-color:var(--lime)}
 .partido-card.comp-bg-sudamericana{background:linear-gradient(rgba(10,12,20,.72),rgba(10,12,20,.72)),url('COPAS/Sudamericana/BG.png');background-size:cover;background-position:center;border-color:rgba(220,148,53,.35)}
 .partido-card.comp-bg-libertadores{background:linear-gradient(rgba(8,8,10,.62),rgba(8,8,10,.62)),url('COPAS/Libertadores/BG.png');background-size:cover;background-position:center;border-color:rgba(212,175,55,.35)}
@@ -453,11 +461,12 @@ select option{background:#1a1a1a}
     <!-- FIXTURE -->
     <div class="view" id="view-fixture">
       <div class="section-header"><h1 class="section-title">Fixture</h1></div>
-      <div style="display:flex;gap:0;margin-bottom:24px;border-bottom:2px solid var(--border)">
-        <button id="ftab-proximos" onclick="setFixtureTab('proximos')" style="background:none;border:none;padding:10px 20px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:.1em;cursor:pointer;color:var(--lime);border-bottom:2px solid var(--lime);margin-bottom:-2px">PRÓXIMOS</button>
-        <button id="ftab-jugados" onclick="setFixtureTab('jugados')" style="background:none;border:none;padding:10px 20px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:.1em;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px">JUGADOS</button>
+      <div class="ftab-wrap">
+        <button id="ftab-proximos" class="ftab-btn" onclick="setFixtureTab('proximos')" style="color:var(--lime)">PRÓXIMOS</button>
+        <button id="ftab-jugados" class="ftab-btn" onclick="setFixtureTab('jugados')" style="color:var(--muted)">JUGADOS</button>
+        <div id="ftab-indicator" class="ftab-indicator"></div>
       </div>
-      <div id="fixture-cont"><div class="loading-txt">CARGANDO...</div></div>
+      <div id="fixture-cont" class="fixture-cont-anim" style="touch-action:pan-y"><div class="loading-txt">CARGANDO...</div></div>
     </div>
 
     <!-- EDICIONES -->
@@ -1168,14 +1177,99 @@ async function openBioModal(userId) {
 // ===== FIXTURE =====
 let _fixtureTab = 'proximos';
 
-function setFixtureTab(tab) {
+function positionFtabIndicator(tab, animate) {
+  const btn = document.getElementById(tab === 'proximos' ? 'ftab-proximos' : 'ftab-jugados');
+  const wrap = btn?.parentElement;
+  const indicator = document.getElementById('ftab-indicator');
+  if (!btn || !wrap || !indicator) return;
+  const wrapRect = wrap.getBoundingClientRect();
+  const btnRect = btn.getBoundingClientRect();
+  if (!animate) indicator.classList.add('no-anim'); else indicator.classList.remove('no-anim');
+  indicator.style.left = (btnRect.left - wrapRect.left) + 'px';
+  indicator.style.width = btnRect.width + 'px';
+  if (!animate) { void indicator.offsetWidth; }
+}
+
+async function setFixtureTab(tab) {
+  if (tab === _fixtureTab) return;
+  const el = document.getElementById('fixture-cont');
+  const forward = tab === 'jugados'; // proximos->jugados desliza a la izquierda
+
+  // 1. Fade-out del contenido actual
+  el.classList.add(forward ? 'fx-left' : 'fx-right');
+  await new Promise(r => setTimeout(r, 160));
+
   _fixtureTab = tab;
   document.getElementById('ftab-proximos').style.color = tab === 'proximos' ? 'var(--lime)' : 'var(--muted)';
-  document.getElementById('ftab-proximos').style.borderBottomColor = tab === 'proximos' ? 'var(--lime)' : 'transparent';
   document.getElementById('ftab-jugados').style.color = tab === 'jugados' ? 'var(--lime)' : 'var(--muted)';
-  document.getElementById('ftab-jugados').style.borderBottomColor = tab === 'jugados' ? 'var(--lime)' : 'transparent';
-  renderFixture();
+  positionFtabIndicator(tab, true);
+
+  await renderFixture();
+
+  // 2. Posicionar el nuevo contenido del lado opuesto sin transición, y animarlo a su lugar
+  el.classList.add('fx-notransition');
+  el.classList.remove('fx-left', 'fx-right');
+  el.classList.add(forward ? 'fx-right' : 'fx-left');
+  void el.offsetWidth; // forzar reflow
+  el.classList.remove('fx-notransition');
+  el.classList.remove('fx-left', 'fx-right');
 }
+
+// ===== Swipe/drag para navegar entre PRÓXIMOS y JUGADOS =====
+(function setupFixtureSwipe() {
+  const el = document.getElementById('fixture-cont');
+  if (!el) return;
+  let startX = 0, startY = 0, dragging = false, horizontal = false;
+  const MAX_DRAG = 120;
+
+  function updateIndicatorDrag(dx) {
+    const pBtn = document.getElementById('ftab-proximos');
+    const jBtn = document.getElementById('ftab-jugados');
+    const wrap = pBtn.parentElement;
+    const wrapRect = wrap.getBoundingClientRect();
+    const pRect = pBtn.getBoundingClientRect();
+    const jRect = jBtn.getBoundingClientRect();
+    const fromRect = _fixtureTab === 'proximos' ? pRect : jRect;
+    const toRect = _fixtureTab === 'proximos' ? jRect : pRect;
+    const draggingForward = (_fixtureTab === 'proximos' && dx < 0) || (_fixtureTab === 'jugados' && dx > 0);
+    const t = draggingForward ? Math.min(Math.abs(dx) / MAX_DRAG, 1) : 0;
+    const left = fromRect.left + (toRect.left - fromRect.left) * t - wrapRect.left;
+    const width = fromRect.width + (toRect.width - fromRect.width) * t;
+    const indicator = document.getElementById('ftab-indicator');
+    indicator.classList.add('no-anim');
+    indicator.style.left = left + 'px';
+    indicator.style.width = width + 'px';
+  }
+
+  el.addEventListener('pointerdown', e => {
+    if (e.target.closest('input, button, .score-in, .penal-check, .gif-del-btn, .tabla-mini-panel')) return;
+    startX = e.clientX; startY = e.clientY; dragging = true; horizontal = false;
+  });
+  el.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    if (!horizontal && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) horizontal = true;
+    if (horizontal) { e.preventDefault(); updateIndicatorDrag(dx); }
+  });
+  el.addEventListener('pointerup', e => {
+    if (!dragging) return;
+    const dx = e.clientX - startX;
+    dragging = false;
+    if (horizontal && Math.abs(dx) > 60) {
+      if (dx < 0 && _fixtureTab === 'proximos') { setFixtureTab('jugados'); horizontal = false; return; }
+      else if (dx > 0 && _fixtureTab === 'jugados') { setFixtureTab('proximos'); horizontal = false; return; }
+    }
+    if (horizontal) positionFtabIndicator(_fixtureTab, true); // no llegó al umbral: volver a su lugar
+    horizontal = false;
+  });
+  el.addEventListener('pointercancel', () => {
+    if (horizontal) positionFtabIndicator(_fixtureTab, true);
+    dragging = false; horizontal = false;
+  });
+
+  // Posición inicial del indicador
+  setTimeout(() => positionFtabIndicator(_fixtureTab, false), 50);
+})();
 
 async function renderFixture() {
   const c = document.getElementById('fixture-cont');
