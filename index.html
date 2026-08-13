@@ -3344,7 +3344,7 @@ const VendingGame = (() => {
   function insertCoin() {
     if (state.locked) return;
     if (state.wallet !== Infinity && state.wallet <= 0) {
-      setStatus('No te quedan monedas · ganás una por cada resultado exacto');
+      setStatus('No te quedan monedas · ganás una por cada exacto y una cada 3 aciertos');
       return;
     }
     if (state.wallet !== Infinity) state.wallet--;   // se descuenta del monedero

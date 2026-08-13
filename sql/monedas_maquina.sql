@@ -1,16 +1,53 @@
 -- ============================================================
--- Máquina expendedora: monedas por acierto exacto
+-- Máquina expendedora: monedas por aciertos
 -- ============================================================
--- Regla: cada acierto exacto da una moneda. El saldo NO se guarda: se calcula
---   saldo = aciertos exactos - monedas gastadas
--- Los aciertos ya viven en pronosticos, así que lo único que hay que persistir
--- es cuántas monedas gastó cada uno. Guardar el saldo aparte sería un dato
--- duplicado que se desincroniza en cuanto se recalculan puntos.
+-- Reglas:
+--   · cada acierto EXACTO           = 1 moneda
+--   · cada 3 aciertos NO exactos    = 1 moneda  (la división trunca: 5 aciertos
+--                                                dan 1 moneda, no 1,67)
+--
+-- El saldo NO se guarda: se calcula como ganadas - gastadas. Los aciertos ya
+-- viven en pronosticos, así que lo único que hay que persistir es cuánto gastó
+-- cada uno. Guardar el saldo aparte sería un dato duplicado que se desincroniza
+-- en cuanto se recalculan puntos (por ejemplo al corregir un resultado).
 --
 -- Es idempotente: se puede correr las veces que haga falta.
 
 alter table public.profiles
   add column if not exists monedas_gastadas integer not null default 0;
+
+-- Monedas GANADAS por un jugador. La fórmula vive acá y en un solo lugar: si
+-- estuviera repetida en cada función, cambiar la regla en una y olvidarse de la
+-- otra dejaría el saldo y el control de gasto discrepando entre sí.
+-- 'acierto' = pronóstico que sumó puntos, igual criterio que la columna
+-- aciertos_total de la vista tabla_posiciones.
+create or replace function public.monedas_ganadas(p_user uuid)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  exactos  integer;
+  aciertos integer;
+  pts_ex   integer;
+begin
+  select value::integer into pts_ex from public.config where key = 'pts_exacto';
+
+  select count(*) filter (where puntos = pts_ex),
+         count(*) filter (where puntos > 0)
+    into exactos, aciertos
+    from public.pronosticos
+   where user_id = p_user;
+
+  exactos  := coalesce(exactos, 0);
+  aciertos := coalesce(aciertos, 0);
+
+  -- greatest(...,0): si alguien dejara pts_exacto en 0, los "exactos" no serían
+  -- un subconjunto de los aciertos y la resta daría negativa, restando monedas.
+  return exactos + (greatest(aciertos - exactos, 0) / 3);   -- división entera: trunca
+end;
+$$;
 
 -- Saldo actual del jugador. Va por RPC en vez de que el cliente cuente sobre
 -- pronosticos: esa tabla está bajo RLS y desde el navegador el conteo vuelve nulo.
@@ -22,24 +59,16 @@ security definer
 set search_path = public
 as $$
 declare
-  exactos  integer;
   gastadas integer;
-  pts_ex   integer;
 begin
   if auth.uid() is null then
     return 0;
   end if;
 
-  select value::integer into pts_ex from public.config where key = 'pts_exacto';
-
-  select count(*) into exactos
-    from public.pronosticos
-   where user_id = auth.uid() and puntos = pts_ex;
-
   select coalesce(monedas_gastadas, 0) into gastadas
     from public.profiles where id = auth.uid();
 
-  return greatest(coalesce(exactos, 0) - coalesce(gastadas, 0), 0);
+  return greatest(public.monedas_ganadas(auth.uid()) - coalesce(gastadas, 0), 0);
 end;
 $$;
 
@@ -55,25 +84,20 @@ security definer
 set search_path = public
 as $$
 declare
-  exactos  integer;
+  ganadas  integer;
   gastadas integer;
-  pts_ex   integer;
 begin
   if auth.uid() is null then
     raise exception 'Sin sesión';
   end if;
 
-  select value::integer into pts_ex from public.config where key = 'pts_exacto';
+  ganadas := public.monedas_ganadas(auth.uid());
 
-  select count(*) into exactos
-    from public.pronosticos
-   where user_id = auth.uid() and puntos = pts_ex;
-
-  select monedas_gastadas into gastadas
+  select coalesce(monedas_gastadas, 0) into gastadas
     from public.profiles where id = auth.uid();
 
   -- El servidor decide si alcanza: si el cliente pide de más, no se descuenta.
-  if gastadas >= exactos then
+  if gastadas >= ganadas then
     raise exception 'No te quedan monedas';
   end if;
 
@@ -81,7 +105,7 @@ begin
      set monedas_gastadas = monedas_gastadas + 1
    where id = auth.uid();
 
-  return exactos - (gastadas + 1);   -- saldo que queda
+  return ganadas - (gastadas + 1);   -- saldo que queda
 end;
 $$;
 
@@ -120,15 +144,18 @@ $$;
 
 grant execute on function public.devolver_monedas(integer) to authenticated;
 
--- Para verificar el saldo de cada jugador:
---   select p.alias,
---          (select count(*) from public.pronosticos pr
---            where pr.user_id = p.id
---              and pr.puntos = (select value::integer from public.config where key='pts_exacto')
---          ) as exactos,
---          p.monedas_gastadas,
---          (select count(*) from public.pronosticos pr
---            where pr.user_id = p.id
---              and pr.puntos = (select value::integer from public.config where key='pts_exacto')
---          ) - p.monedas_gastadas as saldo
---     from public.profiles p order by p.alias;
+-- Verificación: contrasta la cuenta propia contra la vista tabla_posiciones.
+-- Las columnas 'exactos' y 'aciertos' tienen que dar igual que las de la tabla en
+-- pantalla; si no, cambió el criterio de aciertos_total y hay que revisar
+-- monedas_ganadas().
+--
+--   select t.alias,
+--          t.aciertos_exactos                       as exactos,
+--          t.aciertos_total                         as aciertos,
+--          t.aciertos_total - t.aciertos_exactos    as no_exactos,
+--          public.monedas_ganadas(t.id)             as ganadas,
+--          p.monedas_gastadas                       as gastadas,
+--          public.monedas_ganadas(t.id) - p.monedas_gastadas as saldo
+--     from public.tabla_posiciones t
+--     join public.profiles p on p.id = t.id
+--    order by saldo desc;
