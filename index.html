@@ -409,6 +409,15 @@ select option{background:#1a1a1a}
 .bottom-nav-btn .label{font-size:10px;letter-spacing:.04em}
 .bottom-nav-btn.active{color:var(--lime)}
 
+/* Colección de latas BOCHA en el perfil. Grilla que se acomoda sola: con una
+   lata queda una, con quince se reparten en filas sin desbordar la columna. */
+.bocha-coleccion{display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));
+  gap:6px;padding:10px;background:var(--surface2);border-radius:var(--r2);
+  justify-items:center}
+.bocha-coleccion img{width:100%;max-width:46px;height:auto;image-rendering:pixelated;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));transition:transform .15s}
+.bocha-coleccion img:hover{transform:translateY(-3px) scale(1.06)}
+
 /* ===================== JUEGO: MÁQUINA EXPENDEDORA ===================== */
 .vg-stage{display:flex;flex-direction:column;align-items:center;gap:18px;padding:8px 0 24px}
 /* viewport = "lente": recorta lo que queda fuera de cuadro y da la perspectiva */
@@ -2029,18 +2038,40 @@ async function renderPerfil() {
   if (!cProfile) { c.innerHTML='<div class="loading-txt">CARGANDO...</div>'; return; }
   const { nombre, apellido, alias, detalle, avatar_url } = cProfile;
   const av = avatar_url ? `<img src="${avatar_url}" alt="">` : h(alias||'?').slice(0,2).toUpperCase();
-  const { data: misTrofeos } = await sb.from('ediciones').select('nombre, puntos, fecha_finalizada').eq('campeon_user_id', cUser.id).order('fecha_finalizada', { ascending: false });
+  const [{ data: misTrofeos }, { data: misBochas }] = await Promise.all([
+    sb.from('ediciones').select('nombre, puntos, fecha_finalizada')
+      .eq('campeon_user_id', cUser.id).order('fecha_finalizada', { ascending: false }),
+    // Si la tabla todavía no existe (falta sql/bochas_encontradas.sql), el error
+    // se ignora y la sección simplemente no aparece.
+    sb.from('bochas').select('encontrada').eq('user_id', cUser.id)
+      .order('encontrada', { ascending: false })
+  ]);
   const trofeosHtml = (misTrofeos||[]).length ? `
     <div style="margin-top:14px;width:100%">
       <div style="font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;text-align:center">Trofeos</div>
       ${misTrofeos.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-radius:var(--r2);margin-bottom:6px;font-size:12px"><span style="font-size:16px">🏆</span><div style="flex:1"><div style="font-weight:600">${h(t.nombre)}</div><div style="color:var(--muted);font-size:11px">${t.puntos} pts</div></div></div>`).join('')}
     </div>` : '';
+
+  // Colección de latas BOCHA: sólo las secretas, una por hallazgo
+  const bochas = misBochas || [];
+  const fmtBocha = iso => new Date(iso).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'2-digit' });
+  const bochasHtml = bochas.length ? `
+    <div style="margin-top:14px;width:100%">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;text-align:center">
+        Latas BOCHA · ${bochas.length}
+      </div>
+      <div class="bocha-coleccion">
+        ${bochas.map(b => `<img src="juego/latas/bocha.png" alt="Lata BOCHA" title="Encontrada el ${fmtBocha(b.encontrada)}" loading="lazy">`).join('')}
+      </div>
+    </div>` : '';
+
   c.innerHTML = `<div class="perfil-grid">
     <div class="avatar-area">
       <div class="avatar-big" onclick="document.getElementById('av-in').click()">${av}</div>
       <input type="file" id="av-in" accept="image/*" style="display:none" onchange="uploadAvatar(this)">
       <button class="btn btn-ghost btn-sm" onclick="document.getElementById('av-in').click()">Cambiar foto</button>
       ${trofeosHtml}
+      ${bochasHtml}
     </div>
     <form class="perfil-form" onsubmit="savePerfil(event)">
       <div class="field-row">
@@ -3379,6 +3410,13 @@ const VendingGame = (() => {
     try { await sb.rpc('devolver_monedas', { cantidad: n }); } catch (_) { /* se reintenta al recargar */ }
   }
 
+  // Deja constancia de la lata secreta para la colección del perfil. Si falla, la
+  // lata igual se dispensa: no vale la pena arruinar el hallazgo por un error de red.
+  async function registrarBocha() {
+    if (typeof cUser === 'undefined' || !cUser) return;
+    try { await sb.rpc('registrar_bocha'); } catch (_) { /* silencioso a propósito */ }
+  }
+
   // Devolución de monedas: el crédito sin gastar vuelve al monedero
   function returnCoins() {
     if (state.locked || state.machineState === 'vending') return;
@@ -3458,6 +3496,7 @@ const VendingGame = (() => {
   function dispense(product, isSecret) {
     state.dispensedCan = product;
     state.purchasesSinceSecret = isSecret ? 0 : state.purchasesSinceSecret + 1;
+    if (isSecret) registrarBocha();        // queda en la colección del perfil
     focusOn('tray');                       // la cámara baja a la bandeja
 
     const can = $('vg-can');
