@@ -16,3 +16,10 @@ AtiendoBlds.psd
 COPAS/*.ai
 COPAS/*.pdf
 PRODE_ASIENTO.svg
+
+# Material fuente: 292 MB (incluye un PSD de 162 MB). Nunca va al repo.
+# De acá salen los assets optimizados que sí se versionan, en juego/.
+_Assets/
+
+# Prototipo de la máquina 3D, sólo para probar. La versión buena vive en index.html.
+prototipo-3d.html

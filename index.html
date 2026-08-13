@@ -10,6 +10,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
+  /* Caja 3D de la máquina. Las medidas salen del turnaround: el frente de alta
+     resolución da 205x412 y el lateral 166 de profundidad. */
+  --vgW: 205px; --vgH: 412px; --vgD: 166px;
   --bg: #080808;
   --surface: #111111;
   --surface2: #191919;
@@ -340,6 +343,23 @@ select option{background:#1a1a1a}
 .cfg-row{background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);padding:14px 18px;margin-bottom:8px;display:grid;grid-template-columns:1fr 64px;align-items:center;gap:16px}
 .cfg-label{font-size:15px}
 .cfg-input{width:100%;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:20px;padding:6px 8px}
+/* Fila con slider + campo numérico (frecuencia de la lata BOCHA) */
+.cfg-row.cfg-slider{grid-template-columns:1fr minmax(110px,220px) 64px}
+.cfg-range{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:2px;outline:none;cursor:pointer;
+  background:linear-gradient(to right,var(--lime) 0%,var(--lime) var(--pct,0%),var(--border2) var(--pct,0%),var(--border2) 100%)}
+.cfg-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:18px;height:18px;border-radius:50%;
+  background:var(--lime);border:none;cursor:pointer;box-shadow:0 0 0 3px rgba(200,255,0,.18)}
+.cfg-range::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--lime);border:none;cursor:pointer}
+.cfg-range:focus-visible{box-shadow:0 0 0 2px var(--lime)}
+@media(max-width:600px){
+  /* En pantallas angostas el slider no entra al lado: pasa abajo, a todo el ancho.
+     Las posiciones van explícitas porque con auto-placement el campo numérico se
+     iría a una tercera fila, detrás del slider. */
+  .cfg-row.cfg-slider{grid-template-columns:1fr 64px}
+  .cfg-row.cfg-slider .cfg-label{grid-column:1;grid-row:1}
+  .cfg-row.cfg-slider .cfg-input{grid-column:2;grid-row:1}
+  .cfg-row.cfg-slider .cfg-range{grid-column:1 / -1;grid-row:2;margin-top:6px}
+}
 
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(4px);z-index:200;display:none;align-items:center;justify-content:center;padding:24px}
@@ -379,11 +399,152 @@ select option{background:#1a1a1a}
   .tabla-mini-panel.open{max-height:520px}
   .tabla-mini-box{flex-direction:column;align-items:stretch!important;gap:8px}
   .tmb-proximo{flex-direction:row;justify-content:center;gap:8px;border-top:1px solid var(--border2);padding-top:8px;margin-top:2px}
+  /* Juego: en mobile no hay lugar al costado → monedas debajo, en fila */
+  .vg-stage-row{flex-direction:column;align-items:center;gap:10px}
+  .vg-wallet{padding-top:0}
+  .vg-coins{flex-direction:row;justify-content:center;max-width:100%}
 }
 .bottom-nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:var(--muted);font-family:'Bebas Neue',sans-serif;padding:6px 2px;cursor:pointer}
 .bottom-nav-btn .icon{font-size:19px;line-height:1}
 .bottom-nav-btn .label{font-size:10px;letter-spacing:.04em}
 .bottom-nav-btn.active{color:var(--lime)}
+
+/* ===================== JUEGO: MÁQUINA EXPENDEDORA ===================== */
+.vg-stage{display:flex;flex-direction:column;align-items:center;gap:18px;padding:8px 0 24px}
+/* viewport = "lente": recorta lo que queda fuera de cuadro y da la perspectiva */
+/* El alto ya no sale del asset viejo (1086/1448) sino de lo que necesita la caja
+   girando: 13/20 deja que el ancho sea el límite y no el alto, así la máquina
+   entra entera y encima se ve más grande que con el encuadre anterior. */
+.vg-viewport{position:relative;width:min(88vw,400px);aspect-ratio:13/20;overflow:hidden;
+  touch-action:pan-y;perspective:1400px;perspective-origin:50% 45%}
+/* La caja: un solo transform hace todo. Escrito translate → scale → rotate, el
+   navegador rota primero, después escala y por último mueve en el espacio del
+   padre, que es justo el modelo de cámara que necesitamos. */
+.vg-box{position:absolute;left:50%;top:50%;width:var(--vgW);height:var(--vgH);
+  margin-left:calc(var(--vgW) / -2);margin-top:calc(var(--vgH) / -2);
+  transform-style:preserve-3d;will-change:transform;
+  transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+.vg-box.vg-nocam-anim{transition:none}
+/* Las 6 caras del turnaround. Medidas en juego/caras/. */
+.vg-face{position:absolute;backface-visibility:hidden;
+  background-repeat:no-repeat;background-size:100% 100%;image-rendering:pixelated}
+.vg-f-frente{width:var(--vgW);height:var(--vgH);left:0;top:0;
+  transform:translateZ(calc(var(--vgD) / 2));background-image:url('juego/caras/frente.png')}
+.vg-f-trasera{width:var(--vgW);height:var(--vgH);left:0;top:0;
+  transform:rotateY(180deg) translateZ(calc(var(--vgD) / 2));background-image:url('juego/caras/trasera.png')}
+.vg-f-derecha{width:var(--vgD);height:var(--vgH);top:0;left:calc((var(--vgW) - var(--vgD)) / 2);
+  transform:rotateY(90deg) translateZ(calc(var(--vgW) / 2));background-image:url('juego/caras/derecha.png')}
+.vg-f-izquierda{width:var(--vgD);height:var(--vgH);top:0;left:calc((var(--vgW) - var(--vgD)) / 2);
+  transform:rotateY(-90deg) translateZ(calc(var(--vgW) / 2));background-image:url('juego/caras/izquierda.png')}
+.vg-f-superior{width:var(--vgW);height:var(--vgD);left:0;top:calc((var(--vgH) - var(--vgD)) / 2);
+  transform:rotateX(90deg) translateZ(calc(var(--vgH) / 2));background-image:url('juego/caras/superior.png')}
+.vg-f-inferior{width:var(--vgW);height:var(--vgD);left:0;top:calc((var(--vgH) - var(--vgD)) / 2);
+  transform:rotateX(-90deg) translateZ(calc(var(--vgH) / 2));background-image:url('juego/caras/inferior.png')}
+.vg-zoom-reset{position:absolute;top:6px;right:6px;z-index:6;width:26px;height:26px;border-radius:var(--r2);
+  background:rgba(0,0,0,.55);border:1px solid var(--border2);color:var(--muted);cursor:pointer;
+  font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.vg-zoom-reset:hover{color:var(--lime);border-color:var(--lime)}
+/* La cara frontal es además el contenedor de los controles: las hitboxes van en %
+   de esta cara, que ahora es la máquina recortada al ras (sin los márgenes que
+   tenía maquina.png). Por eso los porcentajes de HITBOXES están reexpresados. */
+.vg-machine{user-select:none;-webkit-user-select:none}
+/* Hitboxes: invisibles, posicionadas en % → escalan junto a la máquina */
+.vg-hit{position:absolute;background:transparent;border:none;padding:0;margin:0;cursor:pointer;border-radius:2px;transition:background .12s,box-shadow .12s}
+.vg-hit:hover{background:rgba(255,255,255,.13)}
+.vg-hit:focus-visible{outline:none;box-shadow:0 0 0 2px var(--lime)}
+.vg-hit.is-pressed{background:rgba(200,255,0,.4)}
+.vg-hit:disabled{cursor:not-allowed}
+.vg-hit:disabled:hover{background:transparent}
+/* Modo calibración: descomentar / activar DEBUG_HITBOXES para ver las zonas */
+.vg-machine.vg-debug .vg-hit{background:rgba(0,255,255,.3);outline:1px solid #0ff}
+.vg-machine.vg-debug .vg-can{outline:1px solid #f0f}
+/* Pantalla digital sobre el asset */
+/* La caja coincide con la pantalla real del asset. Como es angosta, los mensajes
+   de 2 palabras ("INSERT COIN", "BOCHA FOUND", "CREDIT 1") wrapean solos en 2
+   renglones. El tamaño de fuente lo calcula fitDisplay() para que SIEMPRE entre. */
+.vg-display{position:absolute;display:flex;align-items:center;justify-content:center;text-align:center;
+  font-family:'Bebas Neue',sans-serif;letter-spacing:.01em;color:#7dff5a;
+  text-shadow:0 0 3px rgba(125,255,90,.5);pointer-events:none;overflow:hidden;padding:0}
+.vg-display span{display:block;line-height:1.02;font-size:10px;white-space:pre-line}
+.vg-display.vg-glitch{animation:vgGlitch .12s steps(2) infinite}
+@keyframes vgGlitch{0%{opacity:1;transform:translateX(0)}50%{opacity:.45;transform:translateX(2%)}100%{opacity:1;transform:translateX(-2%)}}
+/* Giro. Los overlays viven dentro de la cara frontal, así que giran con ella y se
+   leen bien en 3/4. Cuando el frente pasa a mirar para el otro lado hay que
+   apagarlos a mano: backface-visibility oculta la cara pero no garantiza lo mismo
+   para sus hijos en todos los navegadores. */
+.vg-viewport{cursor:grab}
+.vg-viewport.vg-panning,.vg-viewport.vg-panning *{cursor:grabbing !important}
+.vg-machine.vg-back .vg-hit,
+.vg-machine.vg-back .vg-light,
+.vg-machine.vg-back .vg-display,
+.vg-machine.vg-back .vg-can,
+.vg-machine.vg-back .vg-slot-coin{display:none}
+/* Lata dispensada: el botón es la máscara (el agujero de la bandeja) y
+   la lata va acostada adentro, recortada por overflow */
+.vg-can{position:absolute;display:none;background:transparent;border:none;padding:0;cursor:pointer;z-index:2;
+  overflow:hidden}
+.vg-can.show{display:block}
+.vg-can:focus-visible{outline:2px solid var(--lime)}
+.vg-can i{display:block;position:absolute;top:50%;left:50%;width:100%;aspect-ratio:1;
+  background-image:inherit;background-repeat:no-repeat;background-position:center;background-size:contain;
+  image-rendering:pixelated;transform:translate(-50%,-50%) rotate(90deg)}
+.vg-can.show i{animation:vgDrop .42s steps(6) both}
+@keyframes vgDrop{
+  0%  {opacity:0;transform:translate(-50%,-190%) rotate(90deg)}
+  55% {opacity:1;transform:translate(-50%,-50%)  rotate(90deg)}
+  75% {          transform:translate(-50%,-38%)  rotate(90deg)}
+  100%{opacity:1;transform:translate(-50%,-50%)  rotate(90deg)}
+}
+/* HUD debajo de la máquina (crédito + estado legible) */
+.vg-hud{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.vg-credit{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:.12em;color:var(--muted)}
+.vg-credit b{color:var(--lime);font-size:22px;margin-left:6px}
+.vg-status{font-size:12px;color:var(--text-dim);letter-spacing:.04em;min-height:16px}
+.vg-status.vg-secret{color:#ffcc33}
+/* ── Monedero: columna al costado de la máquina (abajo en mobile) ── */
+.vg-stage-row{display:flex;align-items:flex-start;gap:14px}
+.vg-wallet{display:flex;flex-direction:column;align-items:center;gap:8px;padding-top:10px}
+.vg-wallet-lbl{font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:.16em;color:var(--muted);white-space:nowrap}
+.vg-coins{display:flex;flex-direction:column;gap:8px;align-items:center;min-height:46px;flex-wrap:wrap}
+.vg-coins-more{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:.06em;color:var(--muted)}
+/* En mobile las monedas van en fila debajo de la máquina. Va acá y no en el
+   bloque responsive de arriba porque aquel está ANTES de la regla base y, a
+   igual especificidad, la base le ganaba y quedaban siempre en columna. */
+@media(max-width:768px){
+  .vg-coins{flex-direction:row;justify-content:center;max-width:100%}
+}
+/* La moneda usa el spritesheet de 6 frames (juego/moneda-spin.png) */
+.vg-coin{width:44px;height:44px;flex-shrink:0;border:none;padding:0;background-color:transparent;
+  background-image:url('juego/moneda-spin.png');background-size:600% 100%;background-position:0 0;
+  background-repeat:no-repeat;image-rendering:pixelated;cursor:grab;touch-action:none;
+  transition:transform .15s}
+.vg-coin:hover{transform:translateY(-3px)}
+.vg-coin:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+.vg-coin.vg-taken{opacity:.25;pointer-events:none}
+/* Moneda flotante mientras se arrastra */
+.vg-coin-drag{position:fixed;z-index:999;width:46px;height:46px;pointer-events:none;
+  background-image:url('juego/moneda-spin.png');background-size:600% 100%;background-repeat:no-repeat;
+  image-rendering:pixelated;filter:drop-shadow(0 6px 8px rgba(0,0,0,.6))}
+/* Resalte de la ranura cuando la moneda está encima */
+.vg-hit.vg-drop-ok{background:rgba(200,255,0,.45);box-shadow:0 0 0 2px var(--lime)}
+/* ── Lucecitas de los botones (se encienden cuando hay crédito) ── */
+.vg-light{position:absolute;border-radius:50%;pointer-events:none;opacity:0;
+  transition:opacity .25s ease;background:currentColor;
+  box-shadow:0 0 5px 1px currentColor, 0 0 10px 2px currentColor}
+.vg-machine.vg-has-credit .vg-light{opacity:1;animation:vgPulse 1.6s ease-in-out infinite}
+@keyframes vgPulse{0%,100%{opacity:.95}50%{opacity:.55}}
+/* ── Moneda entrando en la ranura ── */
+.vg-slot-coin{position:absolute;display:none;z-index:3;pointer-events:none;
+  background-image:url('juego/moneda-spin.png');background-size:600% 100%;background-repeat:no-repeat;
+  background-position:0 0;image-rendering:pixelated}
+.vg-slot-coin.vg-inserting{display:block;animation:vgSwallow .62s ease-in forwards}
+@keyframes vgSwallow{
+  0%   {transform:translateY(-260%) scaleY(1);   opacity:0}
+  25%  {transform:translateY(-120%) scaleY(1);   opacity:1}
+  70%  {transform:translateY(0)      scaleY(1);   opacity:1}
+  88%  {transform:translateY(10%)    scaleY(.35); opacity:1}
+  100% {transform:translateY(18%)    scaleY(0);   opacity:0}
+}
 
 </style>
 </head>
@@ -456,6 +617,44 @@ select option{background:#1a1a1a}
     <div class="view active" id="view-posiciones">
       <div class="section-header"><h1 class="section-title">Tabla de Posiciones</h1></div>
       <div id="tabla-cont"><div class="loading-txt">CARGANDO...</div></div>
+
+      <!-- JUEGO: MÁQUINA EXPENDEDORA.
+           Va acá afuera y no dentro de #tabla-cont a propósito: renderPosiciones()
+           reescribe ese contenedor entero cada vez que refresca la tabla, y se
+           llevaría puesta la máquina junto con sus listeners. -->
+      <div class="vg-stage">
+        <div class="vg-stage-row">
+        <!-- viewport recorta y da la perspectiva; la caja gira, escala y panea -->
+        <div class="vg-viewport" id="vg-viewport">
+          <div class="vg-box" id="vg-box" role="img" aria-label="Máquina expendedora">
+            <!-- la cara frontal es además el tablero de controles -->
+            <div class="vg-face vg-f-frente vg-machine" id="vg-machine">
+              <!-- pantalla digital -->
+              <div class="vg-display" id="vg-display" aria-live="polite"><span id="vg-display-txt">INSERT COIN</span></div>
+              <!-- moneda que entra por la ranura -->
+              <div class="vg-slot-coin" id="vg-slot-coin"></div>
+              <!-- lata dispensada (en la bandeja) -->
+              <button class="vg-can" id="vg-can" type="button" aria-label="Retirar lata"><i></i></button>
+              <!-- las hitboxes y las luces se inyectan por JS -->
+            </div>
+            <div class="vg-face vg-f-trasera"></div>
+            <div class="vg-face vg-f-derecha"></div>
+            <div class="vg-face vg-f-izquierda"></div>
+            <div class="vg-face vg-f-superior"></div>
+            <div class="vg-face vg-f-inferior"></div>
+          </div>
+          <button class="vg-zoom-reset" id="vg-zoom-reset" type="button" aria-label="Restablecer vista" hidden>⤢</button>
+          </div>
+          <div class="vg-wallet">
+            <div class="vg-wallet-lbl">MONEDAS</div>
+            <div class="vg-coins" id="vg-coins"></div>
+          </div>
+        </div>
+        <div class="vg-hud">
+          <div class="vg-credit">CRÉDITO <b id="vg-credit-num">0</b></div>
+          <div class="vg-status" id="vg-status">Tocá la ranura para acercarte</div>
+        </div>
+      </div>
     </div>
 
     <!-- FIXTURE -->
@@ -488,7 +687,7 @@ select option{background:#1a1a1a}
         <button class="a-tab active" onclick="adminTab('partidos')" id="at-partidos">Partidos</button>
         <button class="a-tab" onclick="adminTab('equipos')" id="at-equipos">Equipos</button>
         <button class="a-tab" onclick="adminTab('usuarios')" id="at-usuarios">Usuarios</button>
-        <button class="a-tab" onclick="adminTab('config')" id="at-config">Puntos</button>
+        <button class="a-tab" onclick="adminTab('config')" id="at-config">Puntos y máquina</button>
         <button class="a-tab" onclick="adminTab('ediciones')" id="at-ediciones">Ediciones</button>
       </div>
       <div class="a-tab-content active" id="ac-partidos">
@@ -900,6 +1099,10 @@ async function doLogout() { await sb.auth.signOut(); }
 
 // ===== VIEWS =====
 function showView(view) {
+  // 'juego' dejó de existir como sección: la máquina pasó a Posiciones. Si quedó
+  // guardada en el localStorage de una visita anterior, la pantalla quedaría en
+  // blanco, así que cualquier vista inexistente cae en posiciones.
+  if (!document.getElementById('view-' + view)) view = 'posiciones';
   document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.bottom-nav-btn').forEach(el => el.classList.remove('active'));
@@ -907,7 +1110,8 @@ function showView(view) {
   document.getElementById('nav-'+view)?.classList.add('active');
   document.getElementById('bnav-'+view)?.classList.add('active');
   localStorage.setItem('prode-view', view);
-  if (view==='posiciones') renderPosiciones();
+  // La máquina vive debajo del podio, así que se monta junto con Posiciones.
+  if (view==='posiciones') { renderPosiciones(); VendingGame.mount(); }
   else if (view==='fixture') renderFixture();
   else if (view==='ediciones') renderEdiciones();
   else if (view==='perfil') renderPerfil();
@@ -2154,9 +2358,45 @@ async function renderAdminConfig() {
     {key:'pts_empate',label:'Solo empate (sin marcador)'},
     {key:'pts_penales',label:'Tanda de penales (bonus por acertar ganador en eliminatorio)'},
   ];
+  // Si la fila todavía no existe (ver sql/config_maquina.sql), cae en el 3% que
+  // trae el juego por defecto.
+  const bocha = cfg['bocha_chance'] ?? '3';
   c.innerHTML = `<p style="font-size:13px;color:var(--text-dim);margin-bottom:20px">Puntos por tipo de acierto.</p>
     ${items.map(i=>`<div class="cfg-row"><span class="cfg-label">${i.label}</span><input type="number" class="cfg-input score-in" id="cfg-${i.key}" value="${cfg[i.key]||0}" min="0" max="99"></div>`).join('')}
+
+    <div style="font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:28px 0 10px">Máquina expendedora</div>
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:16px">Cada compra tira el dado: con esta probabilidad, en vez de la bebida elegida sale la lata secreta BOCHA. En 0 no sale nunca; en 100 sale siempre.</p>
+    <div class="cfg-row cfg-slider">
+      <span class="cfg-label">Frecuencia de la lata BOCHA (%)</span>
+      <input type="range" class="cfg-range" id="cfg-bocha_range" min="0" max="100" step="0.5"
+             value="${h(String(bocha))}" aria-label="Frecuencia de la lata BOCHA"
+             oninput="syncBocha('range')">
+      <input type="number" class="cfg-input score-in" id="cfg-bocha_chance" min="0" max="100" step="0.5"
+             value="${h(String(bocha))}" oninput="syncBocha('num')" onchange="syncBocha('num', true)">
+    </div>
+
     <button class="btn btn-primary" style="margin-top:16px" onclick="saveConfig()">Guardar</button>`;
+
+  syncBocha('num', true);   // pinta el relleno del slider con el valor guardado
+}
+
+// Mantiene slider y campo numérico en sincronía. 'origen' dice cuál se movió,
+// para no reescribir el que el usuario está usando en ese momento.
+function syncBocha(origen, corregir) {
+  const rango = document.getElementById('cfg-bocha_range');
+  const num   = document.getElementById('cfg-bocha_chance');
+  if (!rango || !num) return;
+  const crudo = parseFloat(origen === 'range' ? rango.value : num.value);
+  const v = clampNum(crudo, 0, 100, 3);
+  if (origen === 'range') {
+    num.value = v;
+  } else {
+    rango.value = v;
+    // Sólo se pisa el campo al soltarlo (change), no mientras se tipea: si no,
+    // borrar para escribir otro número te planta un 3 encima.
+    if (corregir && String(v) !== num.value) num.value = v;
+  }
+  rango.style.setProperty('--pct', v + '%');
 }
 
 async function renderAdminEdiciones() {
@@ -2205,8 +2445,22 @@ async function saveConfig() {
   for (const k of keys) {
     await sb.from('config').update({ value: document.getElementById(`cfg-${k}`)?.value||'0' }).eq('key',k);
   }
+
+  // La lata BOCHA va con upsert porque su fila puede no existir todavía: un
+  // update sobre una fila inexistente no falla, simplemente no guarda nada.
+  const pct = clampNum(parseFloat(document.getElementById('cfg-bocha_chance')?.value), 0, 100, 3);
+  const { error } = await sb.from('config')
+    .upsert({ key:'bocha_chance', value:String(pct) }, { onConflict:'key' });
+  if (error) { toast('Error al guardar la lata BOCHA: ' + error.message, 'error'); return; }
+  // que valga ya mismo en esta sesión, sin recargar. Va sin window. porque
+  // VendingGame es un const de nivel superior y esos no cuelgan de window.
+  VendingGame.config.secretCanChance = pct / 100;
+
   toast('Configuración guardada','success');
 }
+
+const clampNum = (v, min, max, porDefecto) =>
+  Number.isFinite(v) ? Math.max(min, Math.min(max, v)) : porDefecto;
 
 // ===== IMPORTAR FIXTURE =====
 let importData = [];
@@ -2318,6 +2572,964 @@ function toggleAvatarExpand(el, e) {
   el.classList.toggle('expanded');
 }
 document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); }));
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   JUEGO: MÁQUINA EXPENDEDORA
+   Todo lo configurable vive en GAME_CONFIG, PRODUCTS y HITBOXES (acá abajo).
+   ═══════════════════════════════════════════════════════════════════════════ */
+const VendingGame = (() => {
+
+  // ─────────────────────────── CONFIGURACIÓN ───────────────────────────
+  const GAME_CONFIG = {
+    defaultProductPrice: 1,
+    secretCanChance: 0.03,          // 3% de que salga BOCHA
+
+    timing: {
+      vending: 700,                 // demora del "VENDING..."
+      secretGlitch: 400,            // duración del glitch del easter egg
+      canDrop: 420,                 // debe coincidir con @keyframes vgDrop
+      errorMsg: 1200                // cuánto dura el aviso de "INSERT COIN"
+    },
+
+    pitySystem: {                   // anti mala suerte (desactivado por ahora)
+      enabled: false,
+      startAfterPurchases: 20,
+      additionalChancePerPurchase: 0.01
+    },
+
+    // Saldo con el que arranca el monedero mientras se consulta el real. Va en 0
+    // a propósito: el saldo verdadero son los aciertos exactos menos lo gastado
+    // (ver cargarMonedero). Si arrancara en un número alto, se vería ese número
+    // un instante y después bajaría de golpe.
+    walletCoins: 0,
+    walletStackVisible: 8,          // cuántas se dibujan; el resto va como “+N”
+
+    camera: {
+      min: 1, max: 2.6,
+      wheelStep: 0.18,              // cuánto zoom por “tick” de rueda
+      spinMs: 70,                   // ms por frame del giro de la moneda
+      // Encuadres automáticos. El punto a centrar es la propia hitbox (se mide en
+      // vivo, ver panParaCentrar), así que acá sólo va cuánto acercarse.
+      focusCoin: { zoom: 2.0 },
+      focusTray: { zoom: 1.9 },
+      // Encuadre de arranque: un 3/4 leve, para que se lea el volumen
+      yawInicial: -18, pitchInicial: -6,
+      pitchMax: 82                  // no dejamos dar vuelta la caja de punta
+    },
+
+    // Poner en true cuando existan los .mp3 en juego/sounds/ (ver SOUNDS más abajo)
+    soundsEnabled: false,
+
+    // ⚠ HERRAMIENTAS DE DESARROLLO — dejar ambas en false en producción
+    forceSecretCan: false,          // true = SIEMPRE sale BOCHA
+    debugHitboxes: false            // true = pinta las zonas clickeables
+  };
+
+  // ─────────────────────────── PRODUCTOS ───────────────────────────
+  const P = GAME_CONFIG.defaultProductPrice;
+  // 'light' = color de la lucecita del botón cuando hay crédito
+  const PRODUCTS = [
+    { id:'coca-cola',      name:'Coca Cola',      price:P, image:'juego/latas/coca-cola.png',      selectable:true, light:'#ff2a1f' },
+    { id:'coca-cola-zero', name:'Coca Cola Zero', price:P, image:'juego/latas/coca-cola-zero.png', selectable:true, light:'#ff3b2f' },
+    { id:'sprite',         name:'Sprite',         price:P, image:'juego/latas/sprite.png',         selectable:true, light:'#28d94b' },
+    { id:'sprite-zero',    name:'Sprite Zero',    price:P, image:'juego/latas/sprite-zero.png',    selectable:true, light:'#ffef9e' },
+    { id:'fanta',          name:'Fanta',          price:P, image:'juego/latas/fanta.png',          selectable:true, light:'#ffb01f' },
+    { id:'pepsi',          name:'Pepsi',          price:P, image:'juego/latas/pepsi.png',          selectable:true, light:'#2ab6ff' },
+    { id:'pepsi-max',      name:'Pepsi Max',      price:P, image:'juego/latas/pepsi-max.png',      selectable:true, light:'#ff2a1f' },
+    { id:'bocha',          name:'BOCHA',          price:0, image:'juego/latas/bocha.png',          selectable:false, secret:true }
+  ];
+
+  // ─────────────────────────── HITBOXES ───────────────────────────
+  // Coordenadas en % de la CARA FRONTAL de la caja 3D → escalan solas.
+  // Para calibrar: poné debugHitboxes:true, mirá las zonas y ajustá estos números.
+  //
+  // Origen de los números: se midieron sobre juego/maquina.png (lienzo 543x724,
+  // con la máquina ocupando x 104-438, y 28-701). La cara frontal del cubo es ese
+  // mismo render pero recortado al ras, así que cada valor está reexpresado con:
+  //     nuevo_left = (viejo_left - 19,153) / 61,694 * 100
+  //     nuevo_top  = (viejo_top  -  3,867) / 93,094 * 100
+  // No hace falta volver a medir sobre el asset: es la misma máquina, sin márgenes.
+  const HITBOXES = {
+    display:  { top:15.40, left:79.99, width:13.13, height:7.84 },  // pantalla
+    coin:     { top:25.39, left:75.93, width:20.26, height:11.82 }, // mecanismo de moneda (zona clickeable)
+    slotHole: { top:34.09, left:83.71, width:5.02,  height:2.58 },  // el óvalo donde entra la moneda
+    // Lucecitas de los botones: misma X para las 7, cada una a la altura de su botón
+    lights:   { left:91.01, width:4.86, height:2.15,
+                y: { 'coca-cola':40.21, 'coca-cola-zero':44.72, 'sprite':48.80, 'sprite-zero':53.31,
+                     'fanta':57.61, 'pepsi':61.80, 'pepsi-max':66.10 } },
+    coinReturn: { top:77.48, left:77.56, width:16.21, height:8.27 },// devolución de monedas
+    tray:     { top:73.62, left:12.23, width:35.01, height:12.46 }, // boca de la bandeja (zona clickeable)
+    can:      { top:71.58, left:12.72, width:34.04, height:14.50 }, // dónde se dibuja la lata
+    products: {                                                     // etiqueta + botón de cada bebida
+      'coca-cola':      { top:39.35, left:73.50, width:23.50, height:3.87 },
+      'coca-cola-zero': { top:43.86, left:73.50, width:23.50, height:3.87 },
+      'sprite':         { top:47.94, left:73.50, width:23.50, height:3.87 },
+      'sprite-zero':    { top:52.46, left:73.50, width:23.50, height:3.87 },
+      'fanta':          { top:56.75, left:73.50, width:23.50, height:3.87 },
+      'pepsi':          { top:60.94, left:73.50, width:23.50, height:3.87 },
+      'pepsi-max':      { top:65.24, left:73.50, width:23.50, height:3.87 }
+    }
+  };
+
+  // ─────────────────────────── SONIDOS ───────────────────────────
+  // Si el archivo no existe simplemente no suena. Nunca tira error.
+  const SOUNDS = {
+    coin:    'juego/sounds/coin.mp3',
+    button:  'juego/sounds/button.mp3',
+    vending: 'juego/sounds/vending.mp3',
+    canDrop: 'juego/sounds/can-drop.mp3',
+    secret:  'juego/sounds/secret.mp3',
+    error:   'juego/sounds/error.mp3'
+  };
+  function playSound(key) {
+    if (!GAME_CONFIG.soundsEnabled) return;   // evita 404s hasta que existan los .mp3
+    const src = SOUNDS[key];
+    if (!src) return;
+    try {
+      const a = new Audio(src);
+      a.volume = 0.5;
+      a.play().catch(() => {});   // autoplay bloqueado o archivo ausente → silencio
+    } catch {}
+  }
+
+  // ─────────────────────────── ESTADO ───────────────────────────
+  // Un único machineState en vez de varios booleanos sueltos.
+  // 'idle' | 'credit' | 'vending' | 'secret' | 'dispensed'
+  const state = {
+    machineState: 'idle',
+    credit: 0,
+    selectedDrink: null,
+    dispensedCan: null,
+    purchasesSinceSecret: 0,
+    locked: false,
+    mounted: false,
+    // cámara: la caja lleva un solo transform, translate → scale → rotate
+    zoom: 1,                        // zoom del usuario (multiplica la escala base)
+    camMode: 'free',                // 'free' | 'coin' | 'tray'
+    panX: 0, panY: 0,               // desplazamiento en px de pantalla
+    yaw: GAME_CONFIG.camera.yawInicial,
+    pitch: GAME_CONFIG.camera.pitchInicial,
+    wallet: GAME_CONFIG.walletCoins,
+    dragging: false
+  };
+
+  // ─────────────────────────── LÓGICA DEL SECRETO ───────────────────────────
+  // La frecuencia la maneja el admin desde Administración → Puntos y máquina, y
+  // vive en la tabla config (key 'bocha_chance', en porcentaje). Se lee una vez
+  // por sesión; si falla o la fila no existe, queda el valor por defecto.
+  let datosCargados = false;
+  async function cargarDatosRemotos() {
+    if (datosCargados) return;
+    datosCargados = true;
+    try {
+      const { data: cfg } = await sb.from('config').select('value').eq('key', 'bocha_chance');
+      const pct = parseFloat(cfg?.[0]?.value);
+      if (Number.isFinite(pct)) GAME_CONFIG.secretCanChance = clamp(pct, 0, 100) / 100;
+    } catch (_) { /* sin conexión: se juega con los valores por defecto */ }
+  }
+
+  // ─────────────────────────── MONEDAS DEL JUGADOR ───────────────────────────
+  // Cada acierto exacto vale una moneda. El saldo no se guarda en ningún lado:
+  // es aciertos - gastadas, y lo calcula el servidor. Así no se desincroniza
+  // cuando se recalculan puntos, y recargar la página no regala monedas.
+  //
+  // La cuenta va por RPC y no contando pronosticos desde el navegador porque esa
+  // tabla está bajo RLS: desde el cliente el conteo vuelve nulo.
+  async function cargarMonedero() {
+    if (typeof cUser === 'undefined' || !cUser) return;   // sin sesión, queda en 0
+    const { data, error } = await sb.rpc('saldo_monedas');
+    if (error || !Number.isFinite(data)) return;          // falta correr el SQL: no toca nada
+    state.wallet = Math.max(0, data);
+    renderWallet();
+    refresh();
+  }
+
+  function getSecretChance() {
+    const { secretCanChance, pitySystem } = GAME_CONFIG;
+    if (!pitySystem.enabled) return secretCanChance;
+    if (state.purchasesSinceSecret <= pitySystem.startAfterPurchases) return secretCanChance;
+    const extra = state.purchasesSinceSecret - pitySystem.startAfterPurchases;
+    return Math.min(secretCanChance + extra * pitySystem.additionalChancePerPurchase, 1);
+  }
+
+  function chooseDispensedProduct(selectedProduct) {
+    const hit = GAME_CONFIG.forceSecretCan || Math.random() < getSecretChance();
+    if (hit) return PRODUCTS.find(p => p.secret);
+    return selectedProduct;
+  }
+
+  // ─────────────────────────── UI ───────────────────────────
+  const $ = id => document.getElementById(id);
+
+  // Ajusta el cuerpo del texto al máximo que entre en la pantalla (ancho Y alto).
+  // Arranca grande —pensado para 2 renglones— y baja hasta que no desborde.
+  function fitDisplay() {
+    const box = $('vg-display'), el = $('vg-display-txt');
+    if (!box || !el) return;
+    const bw = box.clientWidth, bh = box.clientHeight;
+    if (!bw || !bh) return;
+    let size = bh * 0.46;                       // 2 renglones ≈ 92% del alto
+    el.style.fontSize = size + 'px';
+    let guard = 0;
+    while ((el.scrollWidth > bw || el.scrollHeight > bh) && size > 3 && guard++ < 60) {
+      size -= 0.4;
+      el.style.fontSize = size + 'px';
+    }
+  }
+
+  function setDisplay(txt) {
+    const el = $('vg-display-txt');
+    if (!el) return;
+    el.textContent = txt;
+    fitDisplay();
+  }
+  function setStatus(txt, secret) {
+    const el = $('vg-status');
+    if (!el) return;
+    el.textContent = txt;
+    el.classList.toggle('vg-secret', !!secret);
+  }
+  function setCredit(n) {
+    state.credit = n;
+    const el = $('vg-credit-num');
+    if (el) el.textContent = n;
+    // con crédito se encienden las lucecitas de los botones
+    const m = $('vg-machine');
+    if (m) m.classList.toggle('vg-has-credit', n > 0);
+  }
+
+  // Refleja el estado actual en pantalla + HUD
+  function refresh() {
+    if (state.machineState === 'dispensed') return;   // no pisar "ENJOY!"
+    if (state.credit > 0) {
+      state.machineState = 'credit';
+      setDisplay('CREDIT ' + state.credit);
+      setStatus('Elegí tu bebida');
+    } else {
+      state.machineState = 'idle';
+      setDisplay('INSERT COIN');
+      setStatus('Arrastrá una moneda a la ranura');
+    }
+  }
+
+  function styleFrom(box) {
+    return `top:${box.top}%;left:${box.left}%;width:${box.width}%;height:${box.height}%;`;
+  }
+
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  // ─────────────────────────── CÁMARA 3D ───────────────────────────
+  // La caja lleva UN transform: translate → scale → rotate. Escrito en ese orden,
+  // el navegador rota primero, después escala y por último mueve en el espacio del
+  // padre. Como escala y rotación actúan sobre el mismo centro, la proyección de
+  // cualquier punto es (centro + pan) + k·R(v), y eso hace que las cuentas de
+  // zoom-al-puntero y de encuadre sean simples. Lo compone la GPU.
+  const BOX = { W: 205, H: 412, D: 166 };
+  const PERSPECTIVA = 1400;
+
+  // Escala que hace entrar la caja en el viewport en CUALQUIER ángulo, sin recorte.
+  //
+  // Ancho: el yaw lo lleva a W·|cos y| + D·|sin y|, con máximo √(W²+D²). El pitch
+  // no afecta el ancho.
+  // Alto: el pitch lo lleva a H·|cos p| + (extensión en z)·|sin p|, y esa extensión
+  // en z depende a su vez del yaw. Los dos giros se combinan, y el peor caso
+  // termina siendo la diagonal completa de la caja, √(W²+H²+D²). Tratarlos por
+  // separado se quedaba corto y recortaba 5px en las vistas en diagonal.
+  const HUELLA_W = Math.sqrt(BOX.W * BOX.W + BOX.D * BOX.D);
+  const HUELLA_H = Math.sqrt(BOX.W * BOX.W + BOX.H * BOX.H + BOX.D * BOX.D);
+  function escalaBase() {
+    const vp = $('vg-viewport');
+    if (!vp) return 1;
+    const r = vp.getBoundingClientRect();
+    if (!r.width || !r.height) return 1;
+    return Math.min(r.width  / (HUELLA_W * FACTOR_PERSP),
+                    r.height / (HUELLA_H * FACTOR_PERSP)) * 0.97;
+  }
+
+  // La cara frontal está adelantada D/2, así que la perspectiva la agranda: mover
+  // la caja Δ px corre la cara Δ·factor.
+  // OJO: el factor NO depende del zoom. scale(k) en CSS es scale3d(k,k,1), o sea
+  // no toca el eje z: la cara sigue a D/2 con cualquier zoom. Medido: 1,063 a
+  // zoom 1,6 y a zoom 2, que es exactamente 1400/(1400-83).
+  const FACTOR_PERSP = PERSPECTIVA / (PERSPECTIVA - BOX.D / 2);
+
+  // Cuánto hay que panear para dejar un elemento en el centro del viewport.
+  // Se mide en vez de deducirse: con perspectiva, rotación y el origen de
+  // perspectiva descentrado, la cuenta analítica se equivoca feo (probada: erraba
+  // 127px). Esto aplica dos transforms de prueba sin transición, mide el
+  // desplazamiento real y despeja. Dos reflows, ningún parpadeo.
+  function panParaCentrar(el, zoom, yaw, pitch) {
+    const box = $('vg-box'), vp = $('vg-viewport'), m = $('vg-machine');
+    if (!box || !vp || !el) return [0, 0];
+    const previo = box.style.transform;
+    const eraBack = m?.classList.contains('vg-back');
+    if (eraBack) m.classList.remove('vg-back');     // si está oculto no se puede medir
+    const k = escalaBase() * zoom;
+    box.classList.add('vg-nocam-anim');
+    const poner = (px, py) => {
+      box.style.transform =
+        `translate(${px}px, ${py}px) scale(${k}) rotateX(${pitch}deg) rotateY(${yaw}deg)`;
+      void box.offsetWidth;
+    };
+    const desvio = () => {
+      const rv = vp.getBoundingClientRect(), rt = el.getBoundingClientRect();
+      return [ (rt.left + rt.width / 2) - (rv.left + rv.width / 2),
+               (rt.top  + rt.height / 2) - (rv.top  + rv.height / 2) ];
+    };
+    poner(0, 0);       const d0 = desvio();
+    poner(100, 100);   const d1 = desvio();
+    const gx = (d1[0] - d0[0]) / 100, gy = (d1[1] - d0[1]) / 100;
+    box.style.transform = previo; void box.offsetWidth;
+    box.classList.remove('vg-nocam-anim');
+    if (eraBack) m.classList.add('vg-back');
+    return [ gx ? -d0[0] / gx : 0, gy ? -d0[1] / gy : 0 ];
+  }
+
+  // Encuadre propio del usuario, para poder volver a él después de un automático
+  const libre = { panX: 0, panY: 0, zoom: 1,
+                  yaw: GAME_CONFIG.camera.yawInicial,
+                  pitch: GAME_CONFIG.camera.pitchInicial };
+
+  function aplicarCamara(instant) {
+    const box = $('vg-box');
+    if (!box) return;
+    const k = escalaBase() * state.zoom;
+    if (instant) box.classList.add('vg-nocam-anim');
+    box.style.transform =
+      `translate(${state.panX}px, ${state.panY}px) scale(${k}) ` +
+      `rotateX(${state.pitch}deg) rotateY(${state.yaw}deg)`;
+    if (instant) { void box.offsetWidth; box.classList.remove('vg-nocam-anim'); }
+
+    // Con el frente mirando para el otro lado hay que apagar los controles a mano:
+    // backface-visibility esconde la cara, pero no garantiza lo mismo para sus hijos.
+    const y = ((state.yaw % 360) + 360) % 360;
+    $('vg-machine')?.classList.toggle('vg-back', y > 90 && y < 270);
+
+    const btn = $('vg-zoom-reset');
+    if (btn) btn.hidden = enEncuadreInicial();
+  }
+
+  function enEncuadreInicial() {
+    const c = GAME_CONFIG.camera;
+    return state.camMode === 'free' && state.zoom <= 1.001
+        && Math.abs(state.panX) < 1 && Math.abs(state.panY) < 1
+        && Math.abs(state.yaw - c.yawInicial) < 0.5
+        && Math.abs(state.pitch - c.pitchInicial) < 0.5;
+  }
+
+  // Centra un punto de la cara frontal (x%,y%) con un zoom dado, de frente.
+  function focusOn(mode) {
+    const c = GAME_CONFIG.camera;
+    state.camMode = mode;
+    if (mode === 'coin' || mode === 'tray') {
+      const f = (mode === 'coin') ? c.focusCoin : c.focusTray;
+      const el = $(mode === 'coin' ? 'vg-coin-hit' : 'vg-tray-hit');
+      state.zoom = f.zoom;
+      state.yaw = 0; state.pitch = 0;              // de frente, que es donde se opera
+      const p = panParaCentrar(el, f.zoom, 0, 0);
+      state.panX = p[0]; state.panY = p[1];
+    } else {
+      state.zoom = libre.zoom; state.yaw = libre.yaw; state.pitch = libre.pitch;
+      state.panX = libre.panX; state.panY = libre.panY;
+    }
+    aplicarCamara();
+  }
+
+  function guardarLibre() {
+    libre.panX = state.panX; libre.panY = state.panY; libre.zoom = state.zoom;
+    libre.yaw = state.yaw;   libre.pitch = state.pitch;
+    state.camMode = 'free';
+  }
+
+  // Pone la máquina de frente sin tocar zoom ni paneo (para poder operarla)
+  function enderezar() {
+    if (state.yaw === 0 && state.pitch === 0) return;
+    state.yaw = 0; state.pitch = 0;
+    guardarLibre();
+    aplicarCamara();
+    refresh();
+  }
+
+  function resetCamera() {
+    const c = GAME_CONFIG.camera;
+    state.zoom = 1; state.panX = 0; state.panY = 0;
+    state.yaw = c.yawInicial; state.pitch = c.pitchInicial;
+    guardarLibre();
+    aplicarCamara();
+  }
+
+  // ─────────────────────────── PANEO ───────────────────────────
+  let panning = false, panMoved = false, panLastX = 0, panLastY = 0;
+
+  function onPanDown(e) {
+    if (e.button !== 0) return;                    // el botón del medio es para girar
+    if (e.pointerType === 'touch') return;         // con el dedo, arrastrar es girar
+    if (state.dragging || state.locked) return;
+    if (state.zoom <= 1.001) return;               // sin zoom no hay recorrido
+    panning = true; panMoved = false;
+    panLastX = e.clientX; panLastY = e.clientY;
+    addEventListener('pointermove', onPanMove);
+    addEventListener('pointerup', onPanUp);
+    addEventListener('pointercancel', onPanUp);
+  }
+
+  function onPanMove(e) {
+    const dx = e.clientX - panLastX, dy = e.clientY - panLastY;
+    if (!panMoved && Math.abs(dx) + Math.abs(dy) < 5) return;   // no robarle el click a los botones
+    if (!panMoved) { panMoved = true; $('vg-viewport').classList.add('vg-panning'); }
+    panLastX = e.clientX; panLastY = e.clientY;
+    // 1:1 con el puntero medido sobre la cara frontal, que es lo que se mira: hay
+    // que descontar el aumento que le mete la perspectiva por estar adelantada
+    state.panX += dx / FACTOR_PERSP; state.panY += dy / FACTOR_PERSP;
+    guardarLibre();
+    aplicarCamara(true);
+  }
+
+  function onPanUp() {
+    removeEventListener('pointermove', onPanMove);
+    removeEventListener('pointerup', onPanUp);
+    removeEventListener('pointercancel', onPanUp);
+    panning = false;
+    $('vg-viewport')?.classList.remove('vg-panning');
+    // si hubo paneo, el click que dispara el soltar no debe activar ninguna hitbox.
+    // Se desarma enseguida: si no, se come el próximo click aunque llegue mucho después.
+    if (panMoved) {
+      addEventListener('click', swallowClick, { capture: true, once: true });
+      setTimeout(() => removeEventListener('click', swallowClick, { capture: true }), 0);
+    }
+    panMoved = false;      // si queda pegado bloquea para siempre el click que endereza
+  }
+
+  function swallowClick(e) { e.stopPropagation(); e.preventDefault(); }
+
+  // Zoom con la rueda: el punto bajo el puntero se queda quieto. Con u = puntero
+  // medido desde el centro del viewport, el centro proyectado de la caja está en
+  // pan, así que para conservar el punto alcanza con pan' = u - (k'/k)·(u - pan).
+  function onWheel(e) {
+    e.preventDefault();
+    const vp = $('vg-viewport');
+    if (!vp) return;
+    const r = vp.getBoundingClientRect();
+    const ux = e.clientX - (r.left + r.width / 2);
+    const uy = e.clientY - (r.top + r.height / 2);
+
+    const c = GAME_CONFIG.camera;
+    const z0 = state.zoom;
+    const dir = e.deltaY < 0 ? 1 : -1;
+    state.zoom = clamp(state.zoom + dir * c.wheelStep, c.min, c.max);
+    const rel = state.zoom / z0;
+
+    state.panX = ux - rel * (ux - state.panX);
+    state.panY = uy - rel * (uy - state.panY);
+    if (state.zoom <= 1.001) { state.panX = 0; state.panY = 0; }   // sin zoom, centrada
+    guardarLibre();
+    aplicarCamara(true);
+  }
+
+  // ─────────────────────────── GIRO DE LA MÁQUINA ───────────────────────────
+  // Giro continuo sobre la caja 3D. Los controles viven en la cara frontal y giran
+  // con ella; para operar hay que estar de frente, así que se endereza sola.
+  function canRotate() {
+    return !state.locked && !state.dragging && state.machineState !== 'dispensed';
+  }
+
+  let rotFromX = 0, rotFromY = 0, rotYaw0 = 0, rotPitch0 = 0, rotMoved = false, rotTactil = false;
+
+  function onMachineDown(e) {
+    // Con mouse el giro va en el botón del medio, porque el izquierdo panea.
+    // Con el dedo no hay botón del medio: gira el arrastre de un dedo.
+    rotTactil = (e.pointerType === 'touch');
+    if (!rotTactil && e.button !== 1) return;
+    if (!rotTactil) e.preventDefault();          // corta el autoscroll del navegador
+    if (!canRotate()) return;
+    rotMoved = false;
+    rotFromX = e.clientX; rotFromY = e.clientY;
+    rotYaw0 = state.yaw;  rotPitch0 = state.pitch;
+    addEventListener('pointermove', onMachineMove);
+    addEventListener('pointerup', onMachineUp);
+    addEventListener('pointercancel', onMachineUp);
+  }
+
+  function onMachineMove(e) {
+    const dx = e.clientX - rotFromX, dy = e.clientY - rotFromY;
+    if (Math.abs(dx) + Math.abs(dy) > 4) rotMoved = true;
+    state.yaw = rotYaw0 + dx * 0.4;
+    // Con el dedo sólo giramos en horizontal: el viewport tiene touch-action pan-y
+    // para que el arrastre vertical siga scrolleando la página. Si tomáramos el
+    // pitch, pelearíamos contra el scroll y la página quedaría trabada.
+    if (!rotTactil)
+      state.pitch = clamp(rotPitch0 - dy * 0.35, -GAME_CONFIG.camera.pitchMax,
+                                                  GAME_CONFIG.camera.pitchMax);
+    guardarLibre();
+    aplicarCamara(true);
+  }
+
+  function onMachineUp() {
+    removeEventListener('pointermove', onMachineMove);
+    removeEventListener('pointerup', onMachineUp);
+    removeEventListener('pointercancel', onMachineUp);
+    if (!rotMoved) {
+      enderezar();                 // toque seco, sin arrastre: endereza
+    } else {
+      // Al soltar un arrastre táctil el navegador sintetiza un click. Si cae sobre
+      // un botón de producto te compra una gaseosa sin querer: lo descartamos.
+      addEventListener('click', swallowClick, { capture: true, once: true });
+      setTimeout(() => removeEventListener('click', swallowClick, { capture: true }), 0);
+    }
+  }
+
+  // ─────────────────────────── MONEDERO ───────────────────────────
+  function coinsToShow() {
+    const w = state.wallet;
+    return w === Infinity ? GAME_CONFIG.walletStackVisible
+                          : Math.min(w, GAME_CONFIG.walletStackVisible);
+  }
+
+  // Suma monedas al monedero (a futuro: un acierto exacto = una moneda)
+  function addCoins(n) {
+    if (state.wallet === Infinity) return;
+    state.wallet += n;
+    renderWallet();
+  }
+
+  function renderWallet() {
+    const cont = $('vg-coins');
+    if (!cont) return;
+    cont.innerHTML = '';
+    const n = coinsToShow();
+
+    // el label lleva el total real, aunque se dibujen menos
+    const lbl = document.querySelector('.vg-wallet-lbl');
+    if (lbl) lbl.textContent = state.wallet === Infinity ? 'MONEDAS' : 'MONEDAS ' + state.wallet;
+
+    for (let i = 0; i < n; i++) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'vg-coin';
+      b.setAttribute('aria-label', 'Insertar una moneda (arrastrala a la ranura o presioná Enter)');
+      b.addEventListener('pointerdown', startCoinDrag);
+      // accesible por teclado: Enter/Espacio inserta directo
+      b.addEventListener('keydown', ev => {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); insertCoin(); }
+      });
+      cont.appendChild(b);
+    }
+    // si hay más de las que entran en la columna, el resto va como “+N”
+    const extra = state.wallet === Infinity ? 0 : state.wallet - n;
+    if (extra > 0) {
+      const more = document.createElement('div');
+      more.className = 'vg-coins-more';
+      more.textContent = '+' + extra;
+      cont.appendChild(more);
+    }
+
+    if (n === 0) {
+      const p = document.createElement('div');
+      p.style.cssText = 'font-size:11px;color:var(--muted)';
+      p.textContent = 'Sin monedas';
+      cont.appendChild(p);
+    }
+  }
+
+  // ─────────────────────────── ARRASTRE DE LA MONEDA ───────────────────────────
+  let dragEl = null, spinTimer = null, spinFrame = 0, srcCoin = null;
+
+  function setCoinFrame(el, i) {
+    el.style.backgroundPosition = (i * 20) + '% 0';   // 6 frames → 0,20,...,100%
+  }
+
+  function startCoinDrag(e) {
+    if (state.locked || state.dragging) return;
+    if (state.wallet !== Infinity && state.wallet <= 0) return;
+    e.preventDefault();
+    state.dragging = true;
+    srcCoin = e.currentTarget;
+    srcCoin.classList.add('vg-taken');
+
+    dragEl = document.createElement('div');
+    dragEl.className = 'vg-coin-drag';
+    setCoinFrame(dragEl, 0);
+    document.body.appendChild(dragEl);
+    moveDrag(e.clientX, e.clientY);
+
+    // gira mientras se arrastra
+    spinFrame = 0;
+    spinTimer = setInterval(() => {
+      spinFrame = (spinFrame + 1) % 6;
+      if (dragEl) setCoinFrame(dragEl, spinFrame);
+    }, GAME_CONFIG.camera.spinMs);
+
+    enderezar();                           // la ranura sólo se opera de frente
+    focusOn('coin');                       // y la cámara se le acerca
+    setStatus('Soltá la moneda en la ranura');
+
+    addEventListener('pointermove', onDragMove);
+    addEventListener('pointerup', onDragEnd);
+    addEventListener('pointercancel', onDragEnd);
+  }
+
+  function moveDrag(x, y) {
+    if (dragEl) { dragEl.style.left = (x - 23) + 'px'; dragEl.style.top = (y - 23) + 'px'; }
+  }
+
+  function slotRect() {
+    const slot = document.querySelector('.vg-hit[aria-label="Insertar crédito"]');
+    return slot ? { el: slot, r: slot.getBoundingClientRect() } : null;
+  }
+
+  function overSlot(x, y) {
+    const s = slotRect();
+    if (!s) return false;
+    // margen generoso: la ranura es chica y el gesto tiene que perdonar
+    const m = 14;
+    return x >= s.r.left - m && x <= s.r.right + m && y >= s.r.top - m && y <= s.r.bottom + m;
+  }
+
+  function onDragMove(e) {
+    moveDrag(e.clientX, e.clientY);
+    const s = slotRect();
+    if (s) s.el.classList.toggle('vg-drop-ok', overSlot(e.clientX, e.clientY));
+  }
+
+  function onDragEnd(e) {
+    removeEventListener('pointermove', onDragMove);
+    removeEventListener('pointerup', onDragEnd);
+    removeEventListener('pointercancel', onDragEnd);
+    clearInterval(spinTimer); spinTimer = null;
+
+    const acertó = e.type === 'pointerup' && overSlot(e.clientX, e.clientY);
+    const s = slotRect();
+    if (s) s.el.classList.remove('vg-drop-ok');
+    if (dragEl) { dragEl.remove(); dragEl = null; }
+    if (srcCoin) { srcCoin.classList.remove('vg-taken'); srcCoin = null; }
+    state.dragging = false;
+
+    if (acertó) {
+      insertCoin();                        // el descuento del monedero va adentro
+    } else {
+      setStatus('La moneda volvió al monedero');
+      setTimeout(() => { if (!state.dragging) refresh(); }, 900);
+    }
+    focusOn('free');                       // la cámara vuelve
+  }
+
+  // Construye las hitboxes una sola vez
+  function build() {
+    const machine = $('vg-machine');
+    if (!machine) return;
+
+    machine.querySelectorAll('.vg-hit').forEach(el => el.remove());
+
+    // pantalla
+    $('vg-display').setAttribute('style', styleFrom(HITBOXES.display));
+
+    // mecanismo de moneda: 1er click acerca la cámara, 2º inserta
+    const coin = document.createElement('button');
+    coin.type = 'button';
+    coin.className = 'vg-hit';
+    coin.id = 'vg-coin-hit';
+    coin.setAttribute('style', styleFrom(HITBOXES.coin));
+    coin.setAttribute('aria-label', 'Insertar crédito');
+    coin.addEventListener('click', onCoinSlotClick);
+    machine.appendChild(coin);
+
+    // devolución de monedas: el crédito sin usar vuelve al monedero
+    const ret = document.createElement('button');
+    ret.type = 'button';
+    ret.className = 'vg-hit';
+    ret.id = 'vg-return-hit';
+    ret.setAttribute('style', styleFrom(HITBOXES.coinReturn));
+    ret.setAttribute('aria-label', 'Devolución de monedas');
+    ret.addEventListener('click', returnCoins);
+    machine.appendChild(ret);
+
+    // lucecitas de los botones
+    machine.querySelectorAll('.vg-light').forEach(el => el.remove());
+    const L = HITBOXES.lights;
+    PRODUCTS.filter(p => p.selectable).forEach(p => {
+      const top = L.y[p.id];
+      if (top == null) return;
+      const d = document.createElement('div');
+      d.className = 'vg-light';
+      d.dataset.light = p.id;
+      d.setAttribute('style',
+        `top:${top}%;left:${L.left}%;width:${L.width}%;height:${L.height}%;color:${p.light};`);
+      machine.appendChild(d);
+    });
+
+    // moneda que cae dentro de la ranura
+    $('vg-slot-coin').setAttribute('style', styleFrom(HITBOXES.slotHole));
+
+    // botones de producto
+    PRODUCTS.filter(p => p.selectable).forEach(p => {
+      const box = HITBOXES.products[p.id];
+      if (!box) return;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'vg-hit';
+      b.dataset.product = p.id;
+      b.setAttribute('style', styleFrom(box));
+      b.setAttribute('aria-label', 'Seleccionar ' + p.name);
+      b.addEventListener('click', () => selectProduct(p.id));
+      machine.appendChild(b);
+    });
+
+    // zona clickeable de la bandeja (además de la lata misma)
+    const tray = document.createElement('button');
+    tray.type = 'button';
+    tray.className = 'vg-hit';
+    tray.id = 'vg-tray-hit';
+    tray.disabled = true;                       // se habilita sólo cuando hay lata
+    tray.setAttribute('style', styleFrom(HITBOXES.tray));
+    tray.setAttribute('aria-label', 'Bandeja de retiro');
+    tray.addEventListener('click', takeCan);
+    machine.appendChild(tray);
+
+    // la máscara de la lata calca el agujero de la bandeja: la lata cae
+    // acostada adentro y lo que sobra queda recortado
+    $('vg-can').setAttribute('style', styleFrom(HITBOXES.tray));
+    $('vg-can').addEventListener('click', takeCan);
+
+    machine.classList.toggle('vg-debug', GAME_CONFIG.debugHitboxes);
+
+    // El giro se engancha al viewport y no a la cara frontal: si no, con la máquina
+    // de costado el botón del medio caería sobre un lateral y no haría nada.
+    const vp = $('vg-viewport');
+    if (vp && !vp.dataset.wired) {
+      vp.addEventListener('wheel', onWheel, { passive: false });
+      vp.addEventListener('pointerdown', onPanDown);    // izquierdo = pasear
+      vp.addEventListener('pointerdown', onMachineDown); // del medio = girar
+      vp.addEventListener('auxclick', e => { if (e.button === 1) e.preventDefault(); });
+      // Estando girada, el primer click sobre un control no opera: endereza. Va en
+      // fase de captura para llegar antes que la hitbox y poder frenar el evento.
+      vp.addEventListener('click', e => {
+        if (state.yaw === 0 && state.pitch === 0) return;
+        if (!e.target.closest('.vg-hit, .vg-can')) return;
+        e.stopPropagation(); e.preventDefault();
+        enderezar();
+        setStatus('Máquina de frente · ya podés operarla');
+      }, true);
+      vp.dataset.wired = '1';
+    }
+    const zr = $('vg-zoom-reset');
+    if (zr && !zr.dataset.wired) {
+      zr.addEventListener('click', resetCamera);
+      zr.dataset.wired = '1';
+    }
+  }
+
+  // ─────────────────────────── ACCIONES ───────────────────────────
+  // Click en el mecanismo: si la cámara no está encima, primero se acerca.
+  // Si ya está acercada, inserta (atajo para quien no quiere arrastrar).
+  function onCoinSlotClick() {
+    if (state.locked || state.dragging) return;
+    if (state.camMode !== 'coin') {
+      focusOn('coin');
+      setStatus('Arrastrá una moneda a la ranura');
+      return;
+    }
+    insertCoin();
+  }
+
+  // Muestra la moneda entrando y siendo tragada por la máquina
+  function playCoinIntoSlot() {
+    const c = $('vg-slot-coin');
+    if (!c) return;
+    c.classList.remove('vg-inserting');
+    void c.offsetWidth;                        // reinicia la animación
+    c.classList.add('vg-inserting');
+    setTimeout(() => c.classList.remove('vg-inserting'), 700);
+  }
+
+  function insertCoin() {
+    if (state.locked) return;
+    if (state.wallet !== Infinity && state.wallet <= 0) {
+      setStatus('No te quedan monedas · ganás una por cada resultado exacto');
+      return;
+    }
+    if (state.wallet !== Infinity) state.wallet--;   // se descuenta del monedero
+    renderWallet();
+    gastarMonedaEnDB();                              // y queda registrado
+    playCoinIntoSlot();
+    setCredit(state.credit + 1);
+    playSound('coin');
+    refresh();
+  }
+
+  // Registra el gasto en la base. El monedero ya se descontó en pantalla para que
+  // la moneda entre sin esperar la red; si el servidor rechaza (no le alcanzaba,
+  // se cayó la conexión), se devuelve y se avisa.
+  async function gastarMonedaEnDB() {
+    if (typeof cUser === 'undefined' || !cUser) return;   // sin sesión no hay nada que guardar
+    try {
+      const { error } = await sb.rpc('gastar_moneda');
+      if (!error) return;
+      state.wallet++;
+      renderWallet();
+      setStatus('No se pudo descontar la moneda: ' + error.message);
+    } catch (_) {
+      state.wallet++;
+      renderWallet();
+      setStatus('Sin conexión: la moneda volvió al monedero');
+    }
+  }
+
+  async function devolverMonedasEnDB(n) {
+    if (typeof cUser === 'undefined' || !cUser) return;
+    try { await sb.rpc('devolver_monedas', { cantidad: n }); } catch (_) { /* se reintenta al recargar */ }
+  }
+
+  // Devolución de monedas: el crédito sin gastar vuelve al monedero
+  function returnCoins() {
+    if (state.locked || state.machineState === 'vending') return;
+    if (state.credit <= 0) {
+      playSound('error');
+      setStatus('No hay crédito para devolver');
+      setTimeout(refresh, GAME_CONFIG.timing.errorMsg);
+      return;
+    }
+    const n = state.credit;
+    setCredit(0);
+    state.selectedDrink = null;
+    addCoins(n);
+    devolverMonedasEnDB(n);              // el reverso del gasto, o se pierden al recargar
+    playSound('coin');
+    setDisplay('RETURN');
+    setStatus(n === 1 ? 'Te devolvió 1 moneda' : `Te devolvió ${n} monedas`);
+    setTimeout(refresh, GAME_CONFIG.timing.errorMsg);
+  }
+
+  function flash(el) {
+    if (!el) return;
+    el.classList.add('is-pressed');
+    setTimeout(() => el.classList.remove('is-pressed'), 160);
+  }
+
+  function noCredit() {
+    playSound('error');
+    setDisplay('INSERT COIN');
+    setStatus('No te alcanza el crédito');
+    setTimeout(refresh, GAME_CONFIG.timing.errorMsg);
+  }
+
+  function selectProduct(id) {
+    // No permitir comprar mientras haya una lata esperando en la bandeja
+    if (state.locked || state.machineState === 'vending') return;
+    if (state.machineState === 'dispensed') {
+      setStatus('Retirá la lata de la bandeja primero');
+      return;
+    }
+
+    const product = PRODUCTS.find(p => p.id === id);
+    if (!product || !product.selectable) return;
+
+    if (state.credit < product.price) { noCredit(); return; }
+
+    state.locked = true;
+    state.selectedDrink = product;
+    setCredit(state.credit - product.price);
+    flash(document.querySelector(`.vg-hit[data-product="${id}"]`));
+    playSound('button');
+
+    state.machineState = 'vending';
+    setDisplay('VENDING\n...');   // el \n lo respeta white-space:pre-line → 2 renglones, fuente más grande
+    setStatus('Preparando ' + product.name + '…');
+    playSound('vending');
+
+    const dispensed = chooseDispensedProduct(product);
+    const isSecret = !!dispensed.secret;
+
+    if (isSecret) {
+      // el glitch arranca un toque antes de que caiga la lata
+      setTimeout(() => {
+        state.machineState = 'secret';
+        $('vg-display').classList.add('vg-glitch');
+        setDisplay('???');
+        playSound('secret');
+      }, Math.max(GAME_CONFIG.timing.vending - GAME_CONFIG.timing.secretGlitch, 0));
+    }
+
+    setTimeout(() => {
+      $('vg-display').classList.remove('vg-glitch');
+      dispense(dispensed, isSecret);
+    }, GAME_CONFIG.timing.vending + (isSecret ? GAME_CONFIG.timing.secretGlitch : 0));
+  }
+
+  function dispense(product, isSecret) {
+    state.dispensedCan = product;
+    state.purchasesSinceSecret = isSecret ? 0 : state.purchasesSinceSecret + 1;
+    focusOn('tray');                       // la cámara baja a la bandeja
+
+    const can = $('vg-can');
+    can.style.backgroundImage = `url('${product.image}')`;
+    can.setAttribute('aria-label', 'Retirar ' + product.name);
+    can.classList.remove('show');
+    void can.offsetWidth;              // reinicia la animación
+    can.classList.add('show');
+    playSound('canDrop');
+
+    setTimeout(() => {
+      state.machineState = 'dispensed';
+      state.locked = false;
+      const trayHit = $('vg-tray-hit'); if (trayHit) trayHit.disabled = false;
+      if (isSecret) {
+        setDisplay('BOCHA FOUND');
+        setStatus('¡Encontraste la lata secreta! Tocala para retirarla', true);
+      } else {
+        setDisplay('ENJOY!');
+        setStatus('Tocá la lata para retirarla');
+      }
+    }, GAME_CONFIG.timing.canDrop);
+  }
+
+  function takeCan() {
+    if (state.machineState !== 'dispensed') return;
+    const can = $('vg-can');
+    can.classList.remove('show');
+    can.style.backgroundImage = '';
+    const trayHit = $('vg-tray-hit'); if (trayHit) trayHit.disabled = true;
+    focusOn('free');                       // la cámara vuelve al plano general
+    state.dispensedCan = null;
+    state.selectedDrink = null;
+    state.machineState = state.credit > 0 ? 'credit' : 'idle';
+    refresh();
+  }
+
+  // ─────────────────────────── MONTAJE ───────────────────────────
+  function mount() {
+    if (!state.mounted) {
+      build();
+      renderWallet();
+      state.mounted = true;
+      // Precarga de latas para que la caída no titile la primera vez
+      PRODUCTS.forEach(p => { const i = new Image(); i.src = p.image; });
+      // La máquina escala con el viewport → recalcular el texto apenas cambie de tamaño.
+      // Se usan los dos mecanismos: ResizeObserver capta cualquier causa de cambio,
+      // y el evento resize cubre el caso de que el observer no corra (pestaña sin render).
+      if (window.ResizeObserver) new ResizeObserver(fitDisplay).observe($('vg-display'));
+      let rt;
+      addEventListener('resize', () => {
+        clearTimeout(rt);
+        // la escala base depende del tamaño del viewport, así que el encuadre
+        // también hay que rehacerlo, no sólo el texto de la pantalla
+        rt = setTimeout(() => { aplicarCamara(true); fitDisplay(); }, 100);
+      });
+      // Bebas Neue puede cargar después del primer render y cambiar el ancho del texto
+      if (document.fonts?.ready) document.fonts.ready.then(fitDisplay);
+    }
+    cargarDatosRemotos();            // frecuencia de la BOCHA (una vez por sesión)
+    cargarMonedero();                // el saldo se relee cada vez: si terminó un
+                                     // partido y sumaste un exacto, aparece sola
+    aplicarCamara(true);             // el encuadre inicial, sin animación de entrada
+    refresh();
+    fitDisplay();
+  }
+
+  // Expuesto para debug desde consola: VendingGame.config.forceSecretCan = true
+  return { mount, config: GAME_CONFIG, state, products: PRODUCTS, hitboxes: HITBOXES,
+           focusOn, resetCamera, renderWallet, insertCoin, addCoins,
+           aplicarCamara, enderezar, box: BOX };
+})();
 
 // ===== UTILS =====
 const h = str => String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
