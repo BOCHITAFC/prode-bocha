@@ -409,14 +409,25 @@ select option{background:#1a1a1a}
 .bottom-nav-btn .label{font-size:10px;letter-spacing:.04em}
 .bottom-nav-btn.active{color:var(--lime)}
 
-/* Colección de latas BOCHA en el perfil. Grilla que se acomoda sola: con una
-   lata queda una, con quince se reparten en filas sin desbordar la columna. */
-.bocha-coleccion{display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));
-  gap:6px;padding:10px;background:var(--surface2);border-radius:var(--r2);
-  justify-items:center}
-.bocha-coleccion img{width:100%;max-width:46px;height:auto;image-rendering:pixelated;
+/* Colección de latas BOCHA en el perfil. Dos por fila: a ese tamaño la lata se
+   reconoce, que es todo el punto de mostrarla. Más chicas quedaban ilegibles. */
+.bocha-coleccion{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:10px;
+  background:var(--surface2);border-radius:var(--r2);justify-items:center}
+.bocha-coleccion img{width:100%;height:auto;image-rendering:pixelated;
   filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));transition:transform .15s}
 .bocha-coleccion img:hover{transform:translateY(-3px) scale(1.06)}
+/* Aviso de las que no entran, cuando la colección se hace larga */
+.bocha-mas{grid-column:1/-1;text-align:center;font-family:'Bebas Neue',sans-serif;
+  font-size:14px;letter-spacing:.06em;color:var(--muted);padding-top:2px}
+
+/* En el modal de jugador el ancho es otro: van en fila, al lado de los trofeos */
+.bio-bochas{display:flex;justify-content:center;align-items:flex-end;gap:8px;
+  flex-wrap:wrap;padding:12px 20px 0}
+.bio-bochas img{width:52px;height:auto;image-rendering:pixelated;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));transition:transform .15s}
+.bio-bochas img:hover{transform:translateY(-3px) scale(1.06)}
+.bio-bochas .bocha-mas{font-family:'Bebas Neue',sans-serif;font-size:14px;
+  letter-spacing:.06em;color:var(--muted);align-self:center}
 
 /* ===================== JUEGO: MÁQUINA EXPENDEDORA ===================== */
 .vg-stage{display:flex;flex-direction:column;align-items:center;gap:18px;padding:8px 0 24px}
@@ -1313,7 +1324,7 @@ async function openBioModal(userId) {
   content.innerHTML = '<div class="loading-txt" style="padding:60px 0;text-align:center">CARGANDO...</div>';
   openModal('modal-bio');
 
-  const [{ data: profile }, { data: ediciones }, { data: pronos }, { data: cfgRows }] = await Promise.all([
+  const [{ data: profile }, { data: ediciones }, { data: pronos }, { data: cfgRows }, { data: bochas }] = await Promise.all([
     sb.from('profiles').select('alias, avatar_url, gif_url, detalle').eq('id', userId).single(),
     sb.from('ediciones').select('nombre, campeon_user_id, ultimo_user_id').or(`campeon_user_id.eq.${userId},ultimo_user_id.eq.${userId}`),
     sb.from('pronosticos')
@@ -1322,6 +1333,9 @@ async function openBioModal(userId) {
       .eq('partidos.estado', 'finalizado')
       .not('puntos', 'is', null),
     sb.from('config').select('key,value'),
+    // Si falta correr sql/bochas_encontradas.sql el error se ignora y la sección
+    // simplemente no aparece.
+    sb.from('bochas').select('encontrada').eq('user_id', userId).order('encontrada', { ascending: false }),
   ]);
 
   if (!profile) { content.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">No se encontró el jugador</div>'; return; }
@@ -1333,6 +1347,17 @@ async function openBioModal(userId) {
       <div class="icon">${e.campeon_user_id === userId ? '🏆' : '💩'}</div>
       <div class="nombre">${h(e.nombre)}</div>
     </div>`).join('');
+
+  // Colección de latas BOCHA. Acá van en fila; se muestran hasta 6 y el resto
+  // como “+N”, para no empujar las estadísticas fuera de la vista.
+  const misBochas = bochas || [];
+  const BIO_VISIBLES = 6;
+  const bochasSobran = Math.max(0, misBochas.length - BIO_VISIBLES);
+  const bochasHtml = misBochas.length ? `
+    <div class="bio-bochas" title="Latas BOCHA encontradas">
+      ${misBochas.slice(0, BIO_VISIBLES).map(b => lataBochaImg(b.encontrada)).join('')}
+      ${bochasSobran ? `<span class="bocha-mas">+${bochasSobran}</span>` : ''}
+    </div>` : '';
 
   // Estadísticas por equipo
   const porEquipo = {}; // nombre -> { puntos, exactos, partidos }
@@ -1378,6 +1403,7 @@ async function openBioModal(userId) {
     <div class="bio-avatar-wrap"><div class="bio-avatar" ${avatarClick}>${avatarHtml}</div></div>
     <div class="bio-alias">${h(profile.alias)}</div>
     ${trofeosHtml ? `<div class="bio-trofeos">${trofeosHtml}</div>` : ''}
+    ${bochasHtml}
     ${profile.detalle ? `<div class="bio-detalle">"${h(profile.detalle)}"</div>` : ''}
     <div class="bio-stats">
       <div class="bio-stat-row"><span class="bio-stat-label">⚽ Más aciertos exactos con</span><span class="bio-stat-val">${mejorEquipoExactos ? `${h(mejorEquipoExactos.nombre)} (${mejorEquipoExactos.exactos})` : '—'}</span></div>
@@ -2052,16 +2078,20 @@ async function renderPerfil() {
       ${misTrofeos.map(t => `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-radius:var(--r2);margin-bottom:6px;font-size:12px"><span style="font-size:16px">🏆</span><div style="flex:1"><div style="font-weight:600">${h(t.nombre)}</div><div style="color:var(--muted);font-size:11px">${t.puntos} pts</div></div></div>`).join('')}
     </div>` : '';
 
-  // Colección de latas BOCHA: sólo las secretas, una por hallazgo
+  // Colección de latas BOCHA: sólo las secretas, una por hallazgo.
+  // Se muestran las últimas 8 y el resto va como “+N”: con la lata a este tamaño,
+  // una colección larga estiraría la columna muchísimo.
   const bochas = misBochas || [];
-  const fmtBocha = iso => new Date(iso).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'2-digit' });
+  const VISIBLES = 8;
+  const sobran = Math.max(0, bochas.length - VISIBLES);
   const bochasHtml = bochas.length ? `
     <div style="margin-top:14px;width:100%">
       <div style="font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;text-align:center">
         Latas BOCHA · ${bochas.length}
       </div>
       <div class="bocha-coleccion">
-        ${bochas.map(b => `<img src="juego/latas/bocha.png" alt="Lata BOCHA" title="Encontrada el ${fmtBocha(b.encontrada)}" loading="lazy">`).join('')}
+        ${bochas.slice(0, VISIBLES).map(b => lataBochaImg(b.encontrada)).join('')}
+        ${sobran ? `<div class="bocha-mas">+${sobran}</div>` : ''}
       </div>
     </div>` : '';
 
@@ -3573,6 +3603,12 @@ const VendingGame = (() => {
 // ===== UTILS =====
 const h = str => String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const v = id => document.getElementById(id)?.value?.trim()||'';
+// Una lata BOCHA de la colección. Está acá y no duplicada en cada vista porque la
+// usan el perfil propio y el modal de jugador, y tienen que verse igual en los dos.
+function lataBochaImg(iso) {
+  const f = new Date(iso).toLocaleDateString('es-AR', { day:'2-digit', month:'2-digit', year:'2-digit' });
+  return `<img src="juego/latas/bocha.png" alt="Lata BOCHA" title="Encontrada el ${f}" loading="lazy">`;
+}
 function fmtFecha(iso) {
   if(!iso) return '';
   const d = new Date(iso);
