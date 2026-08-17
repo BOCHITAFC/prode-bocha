@@ -18,13 +18,44 @@ function norm(s: string): string {
     .replace(/[^a-z0-9' ]/g, '').replace(/\s+/g, ' ').trim()
 }
 
+// Mismo diccionario que importar-fixture, sync-livescores y standings-liga.
+// Sin esto, comparar nombres tal cual falla: en las llaves Promiedos escribe
+// "Estudiantes de La Plata" y en nuestra base el equipo es "Estudiantes", así que
+// el cruce no se encontraba y el panel mostraba "información no disponible".
+const ALIASES: Record<string, string> = {
+  'central cordoba sde': 'central cordoba',
+  'central cordoba santiago del estero': 'central cordoba',
+  'deportivo riestra': 'riestra',
+  'estudiantes de la plata': 'estudiantes',
+  'estudiantes la plata': 'estudiantes',
+  'estudiantes lp': 'estudiantes',
+  'estudiantes de rio cuarto': 'estudiantes rc',
+  'estudiantes rio cuarto': 'estudiantes rc',
+  'gimnasia la plata': 'gimnasia lp',
+  'gimnasia y esgrima la plata': 'gimnasia lp',
+  'gimnasia de la plata': 'gimnasia lp',
+  'gimnasia de mendoza': 'gimnasia mendoza',
+  'gimnasia y esgrima mendoza': 'gimnasia mendoza',
+  'gimnasia y esgrima de mendoza': 'gimnasia mendoza',
+  'sarmiento junin': 'sarmiento',
+  'sarmiento de junin': 'sarmiento',
+  'talleres de cordoba': 'talleres',
+  'union de santa fe': 'union',
+  'union santa fe': 'union',
+}
+
+function canon(name: string): string {
+  const n = norm(name)
+  return ALIASES[n] || n
+}
+
 // Un participante placeholder tiene formato "Equipo A/Equipo B"
 function splitParticipante(nombre: string): string[] {
   return nombre.split('/').map(s => s.trim())
 }
 
-function participanteIncluyeEquipo(participanteNombre: string, equipoNorm: string): boolean {
-  return splitParticipante(participanteNombre).some(n => norm(n) === equipoNorm)
+function participanteIncluyeEquipo(participanteNombre: string, equipoCanon: string): boolean {
+  return splitParticipante(participanteNombre).some(n => canon(n) === equipoCanon)
 }
 
 Deno.serve(async (req) => {
@@ -60,15 +91,15 @@ Deno.serve(async (req) => {
       })
     }
 
-    const localTarget = norm(localNombre)
-    const visTarget = norm(visNombre)
+    const localTarget = canon(localNombre)
+    const visTarget = canon(visNombre)
     const stages: any[] = brackets.stages
 
     // Encontrar el stage actual: el que tiene un grupo cuyos 2 participantes son exactamente estos 2 equipos
     let stageIdx = -1
     for (let i = 0; i < stages.length; i++) {
       const found = (stages[i].groups || []).some((g: any) => {
-        const names = (g.participants || []).map((p: any) => norm(p.name))
+        const names = (g.participants || []).map((p: any) => canon(p.name))
         return names.includes(localTarget) && names.includes(visTarget)
       })
       if (found) { stageIdx = i; break }
