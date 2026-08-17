@@ -1908,7 +1908,8 @@ async function toggleTablaLiga(card, competicion, localNombre, visNombre, partid
       const res = await fetch(`${SB_URL}/functions/v1/standings-liga`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ competicion, local: localNombre, visitante: visNombre })
+        // 'desde' = fecha de este partido: el rival siguiente es el primero posterior
+        body: JSON.stringify({ competicion, local: localNombre, visitante: visNombre, desde: fechaHora })
       });
       data = await res.json();
       _standingsCache[cacheKey] = data;
@@ -1925,10 +1926,17 @@ async function toggleTablaLiga(card, competicion, localNombre, visNombre, partid
     return;
   }
 
-  // Buscar próximo rival de cada equipo (en paralelo)
+  // Próximo rival. Preferimos el que devuelve la Edge Function, que sale de
+  // Promiedos y por eso existe también para equipos que no seguimos y para la
+  // última fecha importada. Si no viene (función sin actualizar, o Promiedos
+  // caído) se cae al cálculo sobre nuestra propia base, que es lo que había.
+  const resolverProx = async (nombreRemoto, equipoId) => {
+    if (nombreRemoto) return { nombre: nombreRemoto, escudo_url: await buscarEscudoEquipo(nombreRemoto) };
+    return proximoRivalDe(equipoId, competicion, fechaHora, partidoId);
+  };
   const [proxLocal, proxVis] = await Promise.all([
-    proximoRivalDe(localId, competicion, fechaHora, partidoId),
-    proximoRivalDe(visId, competicion, fechaHora, partidoId),
+    resolverProx(data.proximoLocal, localId),
+    resolverProx(data.proximoVisitante, visId),
   ]);
 
   const proximoRivalHtml = (prox) => {

@@ -46,15 +46,97 @@ function canon(name: string): string {
   return ALIASES[n] || n
 }
 
+// ─────────────────── PRÓXIMO RIVAL ───────────────────
+// Sale de Promiedos y no de nuestra base a propósito: la base solo tiene partidos
+// donde juega al menos un equipo habilitado, así que el rival siguiente de un
+// equipo que no seguimos no existe ahí. Y la última fecha importada nunca puede
+// tener "siguiente" por definición.
+
+type Juego = { fecha: Date; equipos: string[] }
+
+// Caché en memoria del contenedor. Muchas tarjetas abiertas en una misma sesión
+// comparten estos datos; sin esto cada apertura golpearía la API de Promiedos.
+const cacheJuegos = new Map<string, { t: number; juegos: Juego[] }>()
+const TTL_MS = 10 * 60 * 1000
+
+// Promiedos entrega "DD-MM-YYYY HH:mm" en hora de Argentina (UTC-3).
+function parseFecha(s: string): Date | null {
+  const m = String(s || '').match(/^(\d{2})-(\d{2})-(\d{4})\s+(\d{2}):(\d{2})/)
+  if (!m) return null
+  const [, d, mo, y, hh, mi] = m
+  return new Date(Date.UTC(+y, +mo - 1, +d, +hh + 3, +mi))
+}
+
+async function traerJuegos(competicion: string, leagueCode: string, filters: any[]): Promise<Juego[]> {
+  const hit = cacheJuegos.get(competicion)
+  if (hit && Date.now() - hit.t < TTL_MS) return hit.juegos
+
+  const pedir = async (key: string): Promise<any[]> => {
+    try {
+      const r = await fetch(`https://api.promiedos.com.ar/league/games/${leagueCode}/${key}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0', 'Accept-Language': 'es-AR,es;q=0.9' }
+      })
+      if (!r.ok) return []
+      const j = await r.json()
+      return j?.games || []
+    } catch { return [] }
+  }
+
+  // Se arranca por la fecha actual para saber en qué punto del torneo estamos,
+  // y de ahí se piden las siguientes del listado de filtros.
+  const actuales = await pedir('latest')
+  const nombreActual = actuales[0]?.stage_round_name || ''
+
+  // Ubicar la fecha actual dentro de los filtros. Se prueba por nombre normalizado
+  // y, si no da, por el número de fecha: alcanza con que Promiedos cambie un
+  // espacio o una mayúscula para que una comparación literal falle en silencio.
+  let idx = filters.findIndex((f: any) => norm(f?.name || '') === norm(nombreActual))
+  if (idx < 0) {
+    const nro = (nombreActual.match(/\d+/) || [])[0]
+    if (nro) idx = filters.findIndex((f: any) => (String(f?.name || '').match(/\d+/) || [])[0] === nro)
+  }
+  const siguientes = idx >= 0 ? filters.slice(idx + 1, idx + 4) : []
+
+  const crudos = [...actuales]
+  for (const f of siguientes) {
+    if (!f.key || f.key === 'latest') continue
+    crudos.push(...await pedir(f.key))
+  }
+
+  const juegos: Juego[] = []
+  for (const g of crudos) {
+    const fecha = parseFecha(g?.start_time)
+    const equipos = (g?.teams || []).map((t: any) => t?.name).filter(Boolean)
+    if (fecha && equipos.length === 2) juegos.push({ fecha, equipos })
+  }
+  cacheJuegos.set(competicion, { t: Date.now(), juegos })
+  return juegos
+}
+
+// Primer partido del equipo posterior a 'desde'. El filtro por fecha es además la
+// guarda contra el problema de las keys: si una fecha de Promiedos devolviera
+// partidos viejos de otra mitad de temporada, quedan descartados por ser anteriores.
+function proximoRival(juegos: Juego[], equipo: string, desde: Date | null): string | null {
+  const target = canon(equipo)
+  const candidatos = juegos
+    .filter(j => j.equipos.some(n => canon(n) === target))
+    .filter(j => !desde || j.fecha.getTime() > desde.getTime())
+    .sort((a, b) => a.fecha.getTime() - b.fecha.getTime())
+  const j = candidatos[0]
+  if (!j) return null
+  return j.equipos.find(n => canon(n) !== target) || null
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    let localNombre = '', visNombre = '', competicion = 'liga'
+    let localNombre = '', visNombre = '', competicion = 'liga', desdeISO = ''
     try {
       const body = await req.json()
       localNombre = body?.local || ''
       visNombre = body?.visitante || ''
+      desdeISO = body?.desde || ''
       if (body?.competicion && URLS[body.competicion]) competicion = body.competicion
     } catch {}
     if (!localNombre || !visNombre) throw new Error('Faltan nombres de equipos')
@@ -108,7 +190,20 @@ Deno.serve(async (req) => {
     const local = buscarEquipo(localTarget)
     const visitante = buscarEquipo(visTarget)
 
-    return new Response(JSON.stringify({ ok: true, local, visitante }), {
+    // Próximos rivales. Va en un try aparte para que un problema acá no tumbe la
+    // tabla de posiciones, que es lo que el panel muestra primero.
+    let proximoLocal: string | null = null
+    let proximoVisitante: string | null = null
+    try {
+      const filters: any[] = data?.props?.pageProps?.data?.games?.filters || []
+      const leagueCode = PAGE_URL.split('/').pop() || ''
+      const juegos = await traerJuegos(competicion, leagueCode, filters)
+      const desde = desdeISO ? new Date(desdeISO) : null
+      proximoLocal = proximoRival(juegos, localNombre, desde)
+      proximoVisitante = proximoRival(juegos, visNombre, desde)
+    } catch { /* se devuelve la tabla igual, sin próximos */ }
+
+    return new Response(JSON.stringify({ ok: true, local, visitante, proximoLocal, proximoVisitante }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
