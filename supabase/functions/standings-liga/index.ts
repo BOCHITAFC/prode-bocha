@@ -82,26 +82,41 @@ async function traerJuegos(competicion: string, leagueCode: string, filters: any
     } catch { return [] }
   }
 
-  // Se arranca por la fecha actual para saber en qué punto del torneo estamos,
-  // y de ahí se piden las siguientes del listado de filtros.
   const actuales = await pedir('latest')
   const nombreActual = actuales[0]?.stage_round_name || ''
+  const idsActuales = new Set(actuales.map((g: any) => g?.id).filter(Boolean))
 
-  // Ubicar la fecha actual dentro de los filtros. Se prueba por nombre normalizado
-  // y, si no da, por el número de fecha: alcanza con que Promiedos cambie un
-  // espacio o una mayúscula para que una comparación literal falle en silencio.
-  let idx = filters.findIndex((f: any) => norm(f?.name || '') === norm(nombreActual))
-  if (idx < 0) {
-    const nro = (nombreActual.match(/\d+/) || [])[0]
-    if (nro) idx = filters.findIndex((f: any) => (String(f?.name || '').match(/\d+/) || [])[0] === nro)
+  // OJO: el nombre de la fecha NO alcanza para ubicarla. La liga tiene dos torneos
+  // en el mismo listado (Apertura y Clausura), con claves 72_228_3_N y 72_228_8_N,
+  // así que "Fecha 5" aparece DOS veces. Buscar por nombre agarra la primera —la del
+  // torneo viejo— y termina devolviendo partidos de hace seis meses.
+  //
+  // Se identifica por los IDs de los partidos: la fecha actual es aquella cuyo
+  // contenido coincide con lo que devolvió 'latest'. Es exacto y no depende de textos.
+  const candidatos = filters.filter((f: any) =>
+    f?.key && f.key !== 'latest' && norm(f?.name || '') === norm(nombreActual))
+
+  let claveActual = ''
+  for (const c of candidatos) {
+    const juegosC = await pedir(c.key)
+    if (juegosC.some((g: any) => idsActuales.has(g?.id))) { claveActual = c.key; break }
   }
-  const siguientes = idx >= 0 ? filters.slice(idx + 1, idx + 4) : []
+
+  // Las siguientes se toman del MISMO torneo: se compara el prefijo de la clave
+  // (72_228_8_) y se avanza el número de fecha, en vez de correrse por el array.
+  const siguientes: any[] = []
+  const m = claveActual.match(/^(.*_)(\d+)$/)
+  if (m) {
+    const [, prefijo, nroStr] = m
+    const nro = parseInt(nroStr)
+    for (let i = 1; i <= 3; i++) {
+      const f = filters.find((x: any) => x?.key === `${prefijo}${nro + i}`)
+      if (f) siguientes.push(f)
+    }
+  }
 
   const crudos = [...actuales]
-  for (const f of siguientes) {
-    if (!f.key || f.key === 'latest') continue
-    crudos.push(...await pedir(f.key))
-  }
+  for (const f of siguientes) crudos.push(...await pedir(f.key))
 
   const juegos: Juego[] = []
   for (const g of crudos) {
@@ -115,11 +130,25 @@ async function traerJuegos(competicion: string, leagueCode: string, filters: any
 
 // Primer partido del equipo posterior a 'desde'. El filtro por fecha es además la
 // guarda contra el problema de las keys: si una fecha de Promiedos devolviera
-// partidos viejos de otra mitad de temporada, quedan descartados por ser anteriores.
-function proximoRival(juegos: Juego[], equipo: string, desde: Date | null): string | null {
+// partidos viejos de otro torneo, quedan descartados por ser anteriores.
+//
+// 'parActual' es el partido que se está mirando, y hay que excluirlo a mano: si
+// Promiedos lo reprogramó a un horario más tarde que el que tenemos guardado,
+// queda "después de sí mismo" y se devolvería como su propio próximo rival.
+// Se compara por par de equipos y sólo dentro de una ventana de días, para no
+// descartar un eventual revancha meses después.
+const VENTANA_MISMO_PARTIDO = 5 * 24 * 60 * 60 * 1000
+
+function proximoRival(juegos: Juego[], equipo: string, desde: Date | null, parActual: string): string | null {
   const target = canon(equipo)
+  const esElMismo = (j: Juego) => {
+    if (!parActual || !desde) return false
+    if (j.equipos.map(canon).sort().join('|') !== parActual) return false
+    return Math.abs(j.fecha.getTime() - desde.getTime()) <= VENTANA_MISMO_PARTIDO
+  }
   const candidatos = juegos
     .filter(j => j.equipos.some(n => canon(n) === target))
+    .filter(j => !esElMismo(j))
     .filter(j => !desde || j.fecha.getTime() > desde.getTime())
     .sort((a, b) => a.fecha.getTime() - b.fecha.getTime())
   const j = candidatos[0]
@@ -199,8 +228,9 @@ Deno.serve(async (req) => {
       const leagueCode = PAGE_URL.split('/').pop() || ''
       const juegos = await traerJuegos(competicion, leagueCode, filters)
       const desde = desdeISO ? new Date(desdeISO) : null
-      proximoLocal = proximoRival(juegos, localNombre, desde)
-      proximoVisitante = proximoRival(juegos, visNombre, desde)
+      const parActual = [localTarget, visTarget].sort().join('|')
+      proximoLocal = proximoRival(juegos, localNombre, desde, parActual)
+      proximoVisitante = proximoRival(juegos, visNombre, desde, parActual)
     } catch { /* se devuelve la tabla igual, sin próximos */ }
 
     return new Response(JSON.stringify({ ok: true, local, visitante, proximoLocal, proximoVisitante }), {

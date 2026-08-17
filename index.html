@@ -1809,13 +1809,34 @@ function normClient(s) {
   return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
     .replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
 }
+// Mismo diccionario de alias que usan las Edge Functions (importar-fixture,
+// sync-livescores, standings-liga). Hace falta acá porque el próximo rival llega
+// con el nombre tal cual lo escribe Promiedos —"Gimnasia de Mendoza"— y en la base
+// figura de otra forma —"Gimnasia Mendoza"—: sin esto no se encuentra el escudo.
+// Si se agrega un alias allá, agregarlo también acá.
+const ALIAS_CLIENT = {
+  'central cordoba sde':'central cordoba', 'central cordoba santiago del estero':'central cordoba',
+  'deportivo riestra':'riestra',
+  'estudiantes de la plata':'estudiantes', 'estudiantes la plata':'estudiantes', 'estudiantes lp':'estudiantes',
+  'estudiantes de rio cuarto':'estudiantes rc', 'estudiantes rio cuarto':'estudiantes rc',
+  'gimnasia la plata':'gimnasia lp', 'gimnasia y esgrima la plata':'gimnasia lp', 'gimnasia de la plata':'gimnasia lp',
+  'gimnasia de mendoza':'gimnasia mendoza', 'gimnasia y esgrima mendoza':'gimnasia mendoza',
+  'gimnasia y esgrima de mendoza':'gimnasia mendoza',
+  'sarmiento junin':'sarmiento', 'sarmiento de junin':'sarmiento',
+  'talleres de cordoba':'talleres',
+  'union de santa fe':'union', 'union santa fe':'union',
+};
+function canonClient(s) {
+  const n = normClient(s);
+  return ALIAS_CLIENT[n] || n;
+}
 async function buscarEscudoEquipo(nombre) {
   if (!_todosEquiposCache) {
     const { data } = await sb.from('equipos').select('nombre, escudo_url');
     _todosEquiposCache = data || [];
   }
-  const target = normClient(nombre);
-  const eq = _todosEquiposCache.find(e => normClient(e.nombre) === target);
+  const target = canonClient(nombre);
+  const eq = _todosEquiposCache.find(e => canonClient(e.nombre) === target);
   return eq?.escudo_url || null;
 }
 function toggleCardClick(card, partidoId, competicion, finalizado, localNombre, visNombre, esEliminatorio, localId, visId, fechaHora) {
