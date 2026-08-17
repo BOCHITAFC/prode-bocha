@@ -1641,20 +1641,30 @@ function updatePenalUI(pid) {
   if (!card) return;
   const sl = parseInt(document.getElementById(`sl-${pid}`)?.value);
   const sv = parseInt(document.getElementById(`sv-${pid}`)?.value);
-  let isEmpate;
-  const idaGl = card.dataset.idaGl !== undefined && card.dataset.idaGl !== '' ? parseInt(card.dataset.idaGl) : NaN;
-  const idaGv = card.dataset.idaGv !== undefined && card.dataset.idaGv !== '' ? parseInt(card.dataset.idaGv) : NaN;
-  if (card.dataset.esVuelta === '1') {
-    if (isNaN(idaGl) || isNaN(idaGv) || isNaN(sl) || isNaN(sv)) isEmpate = false;
-    else isEmpate = (idaGv + sl) === (idaGl + sv);
-  } else {
-    isEmpate = !isNaN(sl) && !isNaN(sv) && sl === sv;
-  }
+  const isEmpate = esEmpateParaPenales(card, sl, sv);
   card.querySelectorAll('.penal-check').forEach(el => {
     el.classList.toggle('visible', isEmpate);
     if (!isEmpate) el.classList.remove('selected');
   });
   card.querySelector('.penal-hint')?.classList.toggle('visible', isEmpate);
+}
+
+// ¿Hay empate a los efectos de los penales? En un partido de VUELTA lo que define
+// es el global de la llave (ida+vuelta), no el marcador de este partido: la llave
+// puede quedar igualada con un 2-0 de vuelta si la ida fue 1-3.
+// Ojo con la orientación: en la vuelta se invierte la localía, así que los goles
+// del visitante en la ida (idaGv) son del equipo que ahora es local.
+//
+// Vive en una sola función a propósito. Estaba duplicada —una copia decidía si se
+// veía el check y otra si se guardaba— y las dos no coincidían: el check aparecía,
+// se podía tildar, y al guardar se descartaba.
+function esEmpateParaPenales(card, gl, gv) {
+  if (!card || isNaN(gl) || isNaN(gv)) return false;
+  if (card.dataset.esVuelta !== '1') return gl === gv;
+  const val = k => (card.dataset[k] !== undefined && card.dataset[k] !== '') ? parseInt(card.dataset[k]) : NaN;
+  const idaGl = val('idaGl'), idaGv = val('idaGv');
+  if (isNaN(idaGl) || isNaN(idaGv)) return false;
+  return (idaGv + gl) === (idaGl + gv);
 }
 
 async function togglePenalSel(pid, teamId) {
@@ -2014,10 +2024,12 @@ function autoSaveProno(pid) {
       if (statusEl) { statusEl.style.color='var(--danger)'; statusEl.textContent='Valor inválido'; }
       return;
     }
-    // Ganador de penales: solo si es empate y hay uno tildado
+    // Ganador de penales: solo si hay empate y alguno tildado. Usa el MISMO
+    // criterio que decide si el check se muestra, así no pueden volver a divergir.
     const card = document.querySelector(`.partido-card[data-pid="${pid}"]`);
     const selectedCheck = card?.querySelector('.penal-check.selected');
-    const ganadorPenalesId = (gl === gv && selectedCheck) ? parseInt(selectedCheck.dataset.tid) : null;
+    const ganadorPenalesId = (esEmpateParaPenales(card, gl, gv) && selectedCheck)
+      ? parseInt(selectedCheck.dataset.tid) : null;
     const { error } = await sb.from('pronosticos').upsert(
       { user_id:cUser.id, partido_id:pid, goles_local:gl, goles_visitante:gv, ganador_penales_id: ganadorPenalesId, updated_at:new Date().toISOString() },
       { onConflict:'user_id,partido_id' }
