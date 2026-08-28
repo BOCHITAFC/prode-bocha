@@ -931,15 +931,25 @@ async function autoImportFixture() {
 }
 
 async function getLigasActivas() {
-  // Solo competencias con partidos entre 30min antes del kickoff y 3hs después
+  // Competencias con partidos entre 30min antes del kickoff y 6hs después,
+  // MÁS cualquier competencia con un partido todavía marcado en juego.
+  // La segunda condición es la importante: la ventana se mide desde el kickoff,
+  // no desde el final. Con solo 3hs, un eliminatorio con alargue y penales
+  // salía de la ventana justo antes de que Promiedos publicara el resultado
+  // y quedaba congelado (caso River - Independiente Santa Fe, 26/08).
+  // Misma lógica que la Edge Function sync-auto, que cubre el caso app cerrada.
   const ahora = new Date();
-  const desde = new Date(ahora.getTime() - 3*60*60*1000).toISOString(); // hasta 3hs atrás (partidos que pudieron haber terminado con prolongación)
-  const hasta = new Date(ahora.getTime() + 30*60*1000).toISOString(); // 30min al futuro
-  const { data } = await sb.from('partidos')
-    .select('competicion')
-    .gte('fecha_hora', desde)
-    .lte('fecha_hora', hasta);
-  return [...new Set((data||[]).map(p => p.competicion))];
+  const desde = new Date(ahora.getTime() - 6*60*60*1000).toISOString();
+  const hasta = new Date(ahora.getTime() + 30*60*1000).toISOString();
+  const limiteZombi = new Date(ahora.getTime() - 12*60*60*1000).toISOString();
+  const [porHorario, enJuego] = await Promise.all([
+    sb.from('partidos').select('competicion').gte('fecha_hora', desde).lte('fecha_hora', hasta),
+    sb.from('partidos').select('competicion').eq('estado', 'en_juego').gte('fecha_hora', limiteZombi),
+  ]);
+  return [...new Set([
+    ...(porHorario.data||[]).map(p => p.competicion),
+    ...(enJuego.data||[]).map(p => p.competicion),
+  ])].filter(Boolean);
 }
 
 function startAutoSync() {
