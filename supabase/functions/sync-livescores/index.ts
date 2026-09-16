@@ -91,8 +91,11 @@ Deno.serve(async (req) => {
       ? (latestFilter ? [latestFilter] : filtersWithKey.slice(-1))
       : filtersWithKey
 
-    const { data: equipos } = await supabase.from('equipos').select('id, nombre')
-    if (!equipos) throw new Error('No se pudieron leer equipos')
+    // Orden por id: si hay dos equipos con el mismo nombre, matchEquipo toma el original
+    // (el más viejo), que es el que usan los partidos. Sin orden, Postgres devolvía a veces
+    // el duplicado primero y el partido nunca se encontraba (River 26/08, Boca 15/09).
+    const { data: equipos } = await supabase.from('equipos').select('id, nombre').order('id')
+    if (!equipos?.length) throw new Error('No se pudieron leer equipos')
 
     const resultados: { partido: string; actualizado: boolean; motivo?: string }[] = []
     let actualizados = 0

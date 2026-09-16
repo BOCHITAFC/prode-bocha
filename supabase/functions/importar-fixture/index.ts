@@ -111,8 +111,14 @@ Deno.serve(async (req) => {
 
     if (rounds.length === 0) throw new Error('No hay partidos disponibles en este momento')
 
-    let { data: equipos } = await supabase.from('equipos').select('*')
-    equipos = equipos || []
+    // Si la lista de equipos no se pudo leer, abortar. Antes el error se descartaba y se seguía
+    // con una lista vacía: ningún equipo matcheaba y ensureEquipo los recreaba a todos como
+    // duplicados (pasó el 11 y 12/09 a las 06:00 UTC — Boca, River, Racing, Vélez, etc.).
+    // Orden por id: si alguna vez hay dos equipos con el mismo nombre, matchEquipo se queda
+    // siempre con el original (el más viejo) y no con el duplicado.
+    let { data: equipos, error: equiposError } = await supabase.from('equipos').select('*').order('id')
+    if (equiposError) throw new Error(`No se pudieron leer equipos: ${equiposError.message}`)
+    if (!equipos?.length) throw new Error('La lista de equipos vino vacía; se aborta para no crear duplicados')
 
     // Helper: crear equipo nuevo si no existe (deshabilitado por default)
     async function ensureEquipo(nombre: string): Promise<any | null> {
