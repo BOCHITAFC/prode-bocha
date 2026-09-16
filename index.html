@@ -2047,29 +2047,45 @@ function autoSaveProno(pid) {
   clearTimeout(_pronoTimers[pid]);
   const statusEl = document.getElementById(`prono-status-${pid}`);
   if (statusEl) { statusEl.style.color = 'var(--muted)'; statusEl.textContent = 'Guardando...'; }
-  _pronoTimers[pid] = setTimeout(async () => {
-    const gl = parseInt(document.getElementById(`sl-${pid}`)?.value);
-    const gv = parseInt(document.getElementById(`sv-${pid}`)?.value);
-    if (isNaN(gl)||isNaN(gv)) { if (statusEl) statusEl.textContent=''; return; }
-    if (gl<0||gv<0||gl>30||gv>30) {
-      if (statusEl) { statusEl.style.color='var(--danger)'; statusEl.textContent='Valor inválido'; }
-      return;
-    }
-    // Ganador de penales: solo si hay empate y alguno tildado. Usa el MISMO
-    // criterio que decide si el check se muestra, así no pueden volver a divergir.
-    const card = document.querySelector(`.partido-card[data-pid="${pid}"]`);
-    const selectedCheck = card?.querySelector('.penal-check.selected');
-    const ganadorPenalesId = (esEmpateParaPenales(card, gl, gv) && selectedCheck)
-      ? parseInt(selectedCheck.dataset.tid) : null;
-    const { error } = await sb.from('pronosticos').upsert(
-      { user_id:cUser.id, partido_id:pid, goles_local:gl, goles_visitante:gv, ganador_penales_id: ganadorPenalesId, updated_at:new Date().toISOString() },
-      { onConflict:'user_id,partido_id' }
-    );
-    if (statusEl) {
-      if (error) { statusEl.style.color='var(--danger)'; statusEl.textContent='✗ Error'; }
-      else { statusEl.style.color='var(--lime)'; statusEl.textContent='✓ Guardado'; }
-    }
-  }, 800);
+  _pronoTimers[pid] = setTimeout(() => guardarProno(pid), 800);
+}
+
+// Si la app pasa a segundo plano (bloquear el celu, cambiar de app, cerrar la pestaña)
+// con un guardado todavía esperando los 800 ms, se envía ya. Antes el timer quedaba
+// en pausa o se perdía: los números seguían en pantalla pero nunca llegaban a la base.
+function flushPronosPendientes() {
+  Object.keys(_pronoTimers).forEach(pid => {
+    clearTimeout(_pronoTimers[pid]);
+    guardarProno(Number(pid));
+  });
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushPronosPendientes(); });
+window.addEventListener('pagehide', flushPronosPendientes);
+
+async function guardarProno(pid) {
+  delete _pronoTimers[pid];
+  const statusEl = document.getElementById(`prono-status-${pid}`);
+  const gl = parseInt(document.getElementById(`sl-${pid}`)?.value);
+  const gv = parseInt(document.getElementById(`sv-${pid}`)?.value);
+  if (isNaN(gl)||isNaN(gv)) { if (statusEl) statusEl.textContent=''; return; }
+  if (gl<0||gv<0||gl>30||gv>30) {
+    if (statusEl) { statusEl.style.color='var(--danger)'; statusEl.textContent='Valor inválido'; }
+    return;
+  }
+  // Ganador de penales: solo si hay empate y alguno tildado. Usa el MISMO
+  // criterio que decide si el check se muestra, así no pueden volver a divergir.
+  const card = document.querySelector(`.partido-card[data-pid="${pid}"]`);
+  const selectedCheck = card?.querySelector('.penal-check.selected');
+  const ganadorPenalesId = (esEmpateParaPenales(card, gl, gv) && selectedCheck)
+    ? parseInt(selectedCheck.dataset.tid) : null;
+  const { error } = await sb.from('pronosticos').upsert(
+    { user_id:cUser.id, partido_id:pid, goles_local:gl, goles_visitante:gv, ganador_penales_id: ganadorPenalesId, updated_at:new Date().toISOString() },
+    { onConflict:'user_id,partido_id' }
+  );
+  if (statusEl) {
+    if (error) { statusEl.style.color='var(--danger)'; statusEl.textContent='✗ No se guardó, volvé a intentar'; }
+    else { statusEl.style.color='var(--lime)'; statusEl.textContent='✓ Guardado'; }
+  }
 }
 
 // ===== EDICIONES (vista usuario) =====
