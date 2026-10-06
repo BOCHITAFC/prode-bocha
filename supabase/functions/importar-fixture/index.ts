@@ -83,29 +83,58 @@ Deno.serve(async (req) => {
     const filtersWithKey = filters.filter((f: any) => f.key && f.key !== 'latest')
     const latestFilter = filters.find((f: any) => f.key === 'latest')
 
-    // Liga/copas: solo la fecha actual ("latest"). Los keys individuales de "Fecha N" en Promiedos
-    // pueden colisionar con numeración de una mitad de temporada anterior (ej: Apertura/Clausura),
-    // devolviendo partidos viejos ya jugados en vez de los próximos — por eso NO miramos hacia adelante.
-    const roundsToFetch = competicion === 'mundial'
-      ? filtersWithKey
+    // Cada ronda se pide una sola vez (la detección del torneo actual reusa estas respuestas)
+    const cacheRondas: Record<string, any[]> = {}
+    async function pedirRonda(key: string): Promise<any[]> {
+      if (cacheRondas[key]) return cacheRondas[key]
+      const apiRes = await fetch(`https://api.promiedos.com.ar/league/games/${leagueCode}/${key}`, {
+        headers: { 'Accept': 'application/json', 'Origin': 'https://www.promiedos.com.ar', 'Referer': pageUrl }
+      })
+      cacheRondas[key] = apiRes.ok ? ((await apiRes.json())?.games || []) : []
+      return cacheRondas[key]
+    }
+
+    // Mundial: todas las rondas.
+    // Resto: la ronda actual ("latest") MÁS las rondas numeradas donde todavía quedan partidos
+    // pendientes. Sin esto, un partido reprogramado a otra fecha queda en una ronda que Promiedos
+    // ya no marca como actual y conserva el horario viejo para siempre (pasó con Sarmiento - River,
+    // movido del 7/10 al 14/10, y antes con Estudiantes RC - San Lorenzo).
+    // Las copas no entran acá: sus rondas ("Cuartos de Final") no tienen número y quedan con
+    // jornada nula, así que siguen trayendo solo la ronda actual, como antes.
+    const roundsToFetch: any[] = competicion === 'mundial'
+      ? [...filtersWithKey]
       : (latestFilter ? [latestFilter] : filtersWithKey.slice(-1))
 
     if (roundsToFetch.length === 0) throw new Error('No hay fechas disponibles en este momento')
 
+    if (competicion !== 'mundial') {
+      const { data: pendientes } = await supabase.from('partidos')
+        .select('jornada').eq('competicion', competicion).eq('estado', 'pendiente')
+      const jornadas = [...new Set((pendientes || []).map((p: any) => p.jornada).filter((j: any) => j != null))]
+      // Las "Fecha N" de Promiedos se repiten entre Apertura y Clausura (keys 72_228_3_N y 72_228_8_N).
+      // Agarrar la del torneo viejo traería partidos ya jugados de los mismos equipos y pisaría datos
+      // buenos, así que primero identificamos a qué torneo pertenece la ronda actual, por id de partido.
+      if (jornadas.length) {
+        const idsActuales = new Set((await pedirRonda(roundsToFetch[0].key)).map((g: any) => g?.id).filter(Boolean))
+        const numeradas = filtersWithKey.filter((f: any) => /_\d+$/.test(f.key))
+        let prefijo = ''
+        for (let i = numeradas.length - 1; i >= 0 && !prefijo; i--) {
+          const games = await pedirRonda(numeradas[i].key)
+          if (games.some((g: any) => idsActuales.has(g?.id))) prefijo = numeradas[i].key.replace(/\d+$/, '')
+        }
+        if (prefijo) {
+          for (const j of jornadas) {
+            const f = numeradas.find((x: any) => x.key === `${prefijo}${j}`)
+            if (f && !roundsToFetch.some((r: any) => r.key === f.key)) roundsToFetch.push(f)
+          }
+        }
+      }
+    }
+
     // Fetch fresh game data for each round via API (evita el caché del SSR)
     const rounds: Array<{ name: string; key: string; games: any[] }> = []
     for (const f of roundsToFetch) {
-      const apiUrl = `https://api.promiedos.com.ar/league/games/${leagueCode}/${f.key}`
-      const apiRes = await fetch(apiUrl, {
-        headers: {
-          'Accept': 'application/json',
-          'Origin': 'https://www.promiedos.com.ar',
-          'Referer': pageUrl,
-        }
-      })
-      if (!apiRes.ok) continue
-      const apiData = await apiRes.json()
-      const games: any[] = apiData?.games || []
+      const games = await pedirRonda(f.key)
       if (games.length > 0) rounds.push({ name: f.name, key: f.key, games })
     }
 
