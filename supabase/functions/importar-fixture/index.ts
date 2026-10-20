@@ -108,14 +108,35 @@ Deno.serve(async (req) => {
     if (roundsToFetch.length === 0) throw new Error('No hay fechas disponibles en este momento')
 
     if (competicion !== 'mundial') {
+      const juegosActuales = await pedirRonda(roundsToFetch[0].key)
+      const numeroDeRonda = (nombre: any) => {
+        const n = parseInt(String(nombre || '').replace(/\D/g, ''))
+        return Number.isFinite(n) && n > 0 ? n : null
+      }
+
+      // 1) Rondas con partidos todavía pendientes: un partido reprogramado queda en una ronda
+      //    que Promiedos ya no marca como actual y conservaría el horario viejo para siempre
+      //    (pasó con Sarmiento - River, movido del 7/10 al 14/10).
       const { data: pendientes } = await supabase.from('partidos')
         .select('jornada').eq('competicion', competicion).eq('estado', 'pendiente')
-      const jornadas = [...new Set((pendientes || []).map((p: any) => p.jornada).filter((j: any) => j != null))]
+      const jornadas = new Set<number>(
+        (pendientes || []).map((p: any) => p.jornada).filter((j: any) => j != null)
+      )
+
+      // 2) Las rondas que aparecen en "latest", MÁS la siguiente. Promiedos va pasando los partidos
+      //    a la ronda actual de a poco: cuando arrancó la Fecha 14 solo exponía 3 de sus 15 partidos,
+      //    ninguno de equipos habilitados, así que la fecha entera no se importaba y el fixture
+      //    quedaba vacío. Pidiendo la ronda completa y la siguiente, los partidos aparecen a tiempo.
+      for (const g of juegosActuales) {
+        const n = numeroDeRonda(g?.stage_round_name)
+        if (n) { jornadas.add(n); jornadas.add(n + 1) }
+      }
+
       // Las "Fecha N" de Promiedos se repiten entre Apertura y Clausura (keys 72_228_3_N y 72_228_8_N).
       // Agarrar la del torneo viejo traería partidos ya jugados de los mismos equipos y pisaría datos
       // buenos, así que primero identificamos a qué torneo pertenece la ronda actual, por id de partido.
-      if (jornadas.length) {
-        const idsActuales = new Set((await pedirRonda(roundsToFetch[0].key)).map((g: any) => g?.id).filter(Boolean))
+      if (jornadas.size) {
+        const idsActuales = new Set(juegosActuales.map((g: any) => g?.id).filter(Boolean))
         const numeradas = filtersWithKey.filter((f: any) => /_\d+$/.test(f.key))
         let prefijo = ''
         for (let i = numeradas.length - 1; i >= 0 && !prefijo; i--) {
@@ -123,7 +144,7 @@ Deno.serve(async (req) => {
           if (games.some((g: any) => idsActuales.has(g?.id))) prefijo = numeradas[i].key.replace(/\d+$/, '')
         }
         if (prefijo) {
-          for (const j of jornadas) {
+          for (const j of [...jornadas].sort((a, b) => a - b)) {
             const f = numeradas.find((x: any) => x.key === `${prefijo}${j}`)
             if (f && !roundsToFetch.some((r: any) => r.key === f.key)) roundsToFetch.push(f)
           }
