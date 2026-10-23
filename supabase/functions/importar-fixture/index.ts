@@ -12,6 +12,10 @@ const URLS: Record<string, string> = {
   sudamericana: 'https://www.promiedos.com.ar/league/conmebol-sudamericana/dij',
 }
 
+// Margen para aceptar que un partido de Promiedos es el mismo que uno de la base.
+// Cubre reprogramaciones (días) sin llegar a confundir dos cruces de distintas fases (meses).
+const TOLERANCIA_DIAS = 21
+
 function slugify(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, '').slice(0, 50)
@@ -269,16 +273,27 @@ Deno.serve(async (req) => {
 
         // Buscar partido existente por (local, visitante, competicion) — SIN exigir fecha_hora exacta,
         // ya que Promiedos puede reprogramar el horario entre imports y eso generaba duplicados.
-        // Un mismo par de equipos en el mismo orden local/visitante no se repite dentro de una misma
-        // competición salvo llaves ida/vuelta (que ya se distinguen porque invierten local/visitante).
+        // Pero el mismo par de equipos SÍ puede repetirse en una competición: fase de grupos y
+        // después semifinal (Estudiantes y Flamengo, Libertadores 2026). Quedarse con el más
+        // reciente hacía que el partido de grupos pisara el de la semifinal, así que se desempata
+        // por cercanía de fecha.
         const { data: existentes } = await supabase.from('partidos')
-          .select('id')
+          .select('id, fecha_hora')
           .eq('equipo_local_id', localEq.id)
           .eq('equipo_visitante_id', visEq.id)
           .eq('competicion', competicion)
-          .order('fecha_hora', { ascending: false })
-          .limit(1)
-        const existente = existentes?.[0] || null
+        let existente = existentes?.[0] || null
+        if (existente && fechaHora) {
+          const objetivo = new Date(fechaHora).getTime()
+          const distancia = (p: any) => Math.abs(new Date(p.fecha_hora).getTime() - objetivo)
+          if (existentes!.length > 1) {
+            existente = existentes!.reduce((mejor: any, p: any) => distancia(p) < distancia(mejor) ? p : mejor, existentes![0])
+          }
+          // Si el más cercano está a meses, es otro cruce (grupos vs semifinal): va como partido nuevo.
+          if (distancia(existente) / 86400000 > TOLERANCIA_DIAS) existente = null
+        } else if (existentes && existentes.length > 1) {
+          continue // ambiguo y sin fecha para desempatar: mejor no tocar nada
+        }
 
         const payload = {
           equipo_local_id: localEq.id,

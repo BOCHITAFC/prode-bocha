@@ -37,9 +37,23 @@ const ALIASES: Record<string, string> = {
   'newells old boys': "newells old boys",
 }
 
+// Margen para aceptar que un partido de Promiedos es el mismo que uno de la base.
+// Cubre reprogramaciones (días) sin llegar a confundir dos cruces de distintas fases (meses).
+const TOLERANCIA_DIAS = 21
+
 function norm(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim()
+}
+
+// "22-10-2026 21:30" (hora de Argentina) → milisegundos, o null si no viene
+function fechaDePromiedos(startTime: any): number | null {
+  if (!startTime) return null
+  const [fecha, hora] = String(startTime).split(' ')
+  const [dd, mm, yyyy] = (fecha || '').split('-')
+  if (!dd || !mm || !yyyy) return null
+  const t = new Date(`${yyyy}-${mm}-${dd}T${hora || '00:00'}:00-03:00`).getTime()
+  return Number.isFinite(t) ? t : null
 }
 
 function matchEquipo(name: string, equipos: any[]): any | null {
@@ -139,22 +153,47 @@ Deno.serve(async (req) => {
           visitante: mapGoles(game.teams?.[1]?.goals),
         }
 
-        // Buscar partido existente
+        // Buscar partido existente. OJO: el mismo par de equipos puede jugar varias veces en una
+        // misma competición (fase de grupos + semifinal, por ejemplo Estudiantes y Flamengo en la
+        // Libertadores 2026). Sin desempatar por fecha, el resultado del partido de grupos se
+        // escribía encima de la semifinal y repartía puntos de un partido que no se había jugado.
         const { data: partidos } = await supabase
-          .from('partidos').select('id, es_eliminatorio, goleadores')
+          .from('partidos').select('id, es_eliminatorio, goleadores, fecha_hora')
           .eq('equipo_local_id', localEq.id)
           .eq('equipo_visitante_id', visEq.id)
           .eq('competicion', liga)
-          .limit(1)
 
         if (!partidos || partidos.length === 0) {
           resultados.push({ partido: `${homeName} vs ${awayName}`, actualizado: false, motivo: 'partido no encontrado' })
           continue
         }
 
+        // Elegir el que más se acerque a la fecha que informa Promiedos, y SOLO aceptarlo si cae
+        // dentro de la tolerancia. En las copas se piden todas las rondas, incluida la fase de
+        // grupos: el Estudiantes 1-1 Flamengo del 29/04 se escribía sobre la semifinal del 15/10
+        // (el único partido de ese cruce en la base) y repartía puntos de un partido no jugado.
+        // La tolerancia es amplia para no romper reprogramaciones, que son de días, no de meses.
+        const fechaGame = fechaDePromiedos(game.start_time)
+        let partido = partidos[0]
+        if (partidos.length > 1) {
+          if (fechaGame == null) {
+            resultados.push({ partido: `${homeName} vs ${awayName}`, actualizado: false, motivo: 'varios partidos posibles y sin fecha para desempatar' })
+            continue
+          }
+          const distancia = (p: any) => Math.abs(new Date(p.fecha_hora).getTime() - fechaGame)
+          partido = partidos.reduce((mejor: any, p: any) => distancia(p) < distancia(mejor) ? p : mejor, partidos[0])
+        }
+        if (fechaGame != null) {
+          const dias = Math.abs(new Date(partido.fecha_hora).getTime() - fechaGame) / 86400000
+          if (dias > TOLERANCIA_DIAS) {
+            resultados.push({ partido: `${homeName} vs ${awayName}`, actualizado: false, motivo: `otro cruce entre los mismos equipos (${Math.round(dias)} días de diferencia)` })
+            continue
+          }
+        }
+
         // Detectar ganador por penales (solo si finalizado + eliminatorio + score en penales)
         let ganadorPenalesId: number | null = null
-        if (estado === 'finalizado' && partidos[0].es_eliminatorio) {
+        if (estado === 'finalizado' && partido.es_eliminatorio) {
           const penScores = game.penalty_scores || game.penalties
           if (Array.isArray(penScores) && penScores[0] != null && penScores[1] != null) {
             const penLocal = Number(penScores[0])
@@ -167,8 +206,8 @@ Deno.serve(async (req) => {
         // No pisar goleadores con datos vacíos si ya teníamos algo cargado (evita perder goles por respuestas
         // incompletas de Promiedos cuando el partido sale de la ronda "actual")
         const nuevoTieneGoles = (goleadores.local?.length || 0) > 0 || (goleadores.visitante?.length || 0) > 0
-        const existenteTieneGoles = (partidos[0].goleadores?.local?.length || 0) > 0 || (partidos[0].goleadores?.visitante?.length || 0) > 0
-        const goleadoresFinal = (!nuevoTieneGoles && existenteTieneGoles) ? partidos[0].goleadores : goleadores
+        const existenteTieneGoles = (partido.goleadores?.local?.length || 0) > 0 || (partido.goleadores?.visitante?.length || 0) > 0
+        const goleadoresFinal = (!nuevoTieneGoles && existenteTieneGoles) ? partido.goleadores : goleadores
 
         const updatePayload: any = {
           goles_local: golesLocal,
@@ -179,7 +218,7 @@ Deno.serve(async (req) => {
         }
         if (ganadorPenalesId != null) updatePayload.ganador_penales_id = ganadorPenalesId
 
-        const { error } = await supabase.from('partidos').update(updatePayload).eq('id', partidos[0].id)
+        const { error } = await supabase.from('partidos').update(updatePayload).eq('id', partido.id)
 
         if (error) {
           resultados.push({ partido: `${homeName} vs ${awayName}`, actualizado: false, motivo: error.message })
