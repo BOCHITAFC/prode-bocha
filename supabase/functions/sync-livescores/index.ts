@@ -56,10 +56,22 @@ function fechaDePromiedos(startTime: any): number | null {
   return Number.isFinite(t) ? t : null
 }
 
-function matchEquipo(name: string, equipos: any[]): any | null {
-  const raw = norm(name)
-  const target = ALIASES[raw] || raw
-  return equipos.find(e => norm(e.nombre) === target) || null
+// Busca el equipo en la base. Prioriza url_name de Promiedos ("gimnasia-mendoza") sobre el nombre
+// visible, porque el nombre puede ser AMBIGUO: desde noviembre 2026 Promiedos llama "Gimnasia y
+// Esgrima" tanto al de La Plata como al de Mendoza. url_name es distinto para cada club.
+function matchEquipo(team: any, equipos: any[]): any | null {
+  const candidatos: string[] = []
+  const urlName = typeof team === 'object' ? team?.url_name : null
+  if (urlName) candidatos.push(norm(String(urlName).replace(/-/g, ' ')))
+  const nombre = typeof team === 'object' ? team?.name : team
+  if (nombre) candidatos.push(norm(nombre))
+
+  for (const c of candidatos) {
+    const target = ALIASES[c] || c
+    const eq = equipos.find(e => norm(e.nombre) === target)
+    if (eq) return eq
+  }
+  return null
 }
 
 Deno.serve(async (req) => {
@@ -127,8 +139,8 @@ Deno.serve(async (req) => {
         const homeName = game.teams?.[0]?.name
         const awayName = game.teams?.[1]?.name
         if (!homeName || !awayName) continue
-        const localEq = matchEquipo(homeName, equipos)
-        const visEq = matchEquipo(awayName, equipos)
+        const localEq = matchEquipo(game.teams[0], equipos)
+        const visEq = matchEquipo(game.teams[1], equipos)
         if (!localEq || !visEq) continue
 
         // Solo procesar partidos que están en juego o recién finalizados (para no machacar BD con partidos viejos)

@@ -174,9 +174,12 @@ Deno.serve(async (req) => {
     if (equiposError) throw new Error(`No se pudieron leer equipos: ${equiposError.message}`)
     if (!equipos?.length) throw new Error('La lista de equipos vino vacía; se aborta para no crear duplicados')
 
-    // Helper: crear equipo nuevo si no existe (deshabilitado por default)
-    async function ensureEquipo(nombre: string): Promise<any | null> {
-      let eq = matchEquipo(nombre, equipos!)
+    // Helper: crear equipo nuevo si no existe (deshabilitado por default).
+    // Recibe el objeto team de Promiedos entero, no solo el nombre, para poder usar url_name.
+    async function ensureEquipo(team: any): Promise<any | null> {
+      const nombre: string = team?.name
+      if (!nombre) return null
+      let eq = matchEquipo(team, equipos!)
       if (eq) {
         // Si ya existe pero no tiene esta competición en su array, agregarla
         if (!eq.competiciones?.includes(competicion)) {
@@ -186,8 +189,9 @@ Deno.serve(async (req) => {
         }
         return eq
       }
-      // Crear nuevo equipo deshabilitado
-      const slug = slugify(nombre)
+      // Crear nuevo equipo deshabilitado. El slug sale de url_name cuando existe, que es único
+      // por club; el nombre visible puede repetirse entre dos clubes distintos.
+      const slug = slugify(team?.url_name || nombre)
       const { data: created, error } = await supabase.from('equipos').insert({
         nombre, slug, habilitado: false, competiciones: [competicion],
       }).select().single()
@@ -215,10 +219,10 @@ Deno.serve(async (req) => {
         if (isPlaceholder(homeTeamName) || isPlaceholder(awayTeamName)) { skipped++; continue }
 
         const preLocalCount = equipos.length
-        const localEq = await ensureEquipo(homeTeamName)
+        const localEq = await ensureEquipo(game.teams[0])
         if (localEq && equipos.length > preLocalCount) { creados++; equiposCreados.push(homeTeamName) }
         const preVisCount = equipos.length
-        const visEq = await ensureEquipo(awayTeamName)
+        const visEq = await ensureEquipo(game.teams[1])
         if (visEq && equipos.length > preVisCount) { creados++; equiposCreados.push(awayTeamName) }
 
         const localEnabled = localEq?.habilitado === true
@@ -392,10 +396,26 @@ const ALIASES: Record<string, string> = {
   'newells old boys': "newells old boys",
 }
 
-function matchEquipo(name: string, equipos: any[]): any | null {
-  const norm = (s: string) =>
-    s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim()
-  const raw = norm(name)
-  const target = ALIASES[raw] || raw
-  return equipos.find(e => norm(e.nombre) === target) || null
+function normNombre(s: string): string {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim()
+}
+
+// Busca el equipo en la base. Prioriza url_name de Promiedos ("gimnasia-mendoza") sobre el nombre
+// visible, porque el nombre puede ser AMBIGUO: desde noviembre 2026 Promiedos llama "Gimnasia y
+// Esgrima" tanto al de La Plata como al de Mendoza, y matchear por nombre creaba un equipo nuevo
+// y un partido duplicado. url_name es distinto para cada club y no cambia.
+function matchEquipo(team: any, equipos: any[]): any | null {
+  const candidatos: string[] = []
+  const urlName = typeof team === 'object' ? team?.url_name : null
+  if (urlName) candidatos.push(normNombre(String(urlName).replace(/-/g, ' ')))
+  const nombre = typeof team === 'object' ? team?.name : team
+  if (nombre) candidatos.push(normNombre(nombre))
+
+  for (const c of candidatos) {
+    const target = ALIASES[c] || c
+    const eq = equipos.find(e => normNombre(e.nombre) === target)
+    if (eq) return eq
+  }
+  return null
 }
