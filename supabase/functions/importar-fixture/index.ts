@@ -225,9 +225,15 @@ Deno.serve(async (req) => {
         const visEq = await ensureEquipo(game.teams[1])
         if (visEq && equipos.length > preVisCount) { creados++; equiposCreados.push(awayTeamName) }
 
+        // En la Liga, desde el repechaje en adelante se juega con TODOS los equipos: quedan pocos
+        // partidos y conviene tenerlos completos, aunque ninguno de los dos esté habilitado.
+        // En la fase regular, y en el resto de las competencias, sigue valiendo el filtro.
+        const esElim = esEliminatorio(roundName)
+        const todosLosEquipos = competicion === 'liga' && esElim
+
         const localEnabled = localEq?.habilitado === true
         const visEnabled = visEq?.habilitado === true
-        if (!localEq || !visEq || (!localEnabled && !visEnabled)) {
+        if (!localEq || !visEq || (!todosLosEquipos && !localEnabled && !visEnabled)) {
           skipped++
           if (!skippedTeams.includes(`${homeTeamName} vs ${awayTeamName}`))
             skippedTeams.push(`${homeTeamName} vs ${awayTeamName}`)
@@ -250,8 +256,8 @@ Deno.serve(async (req) => {
         const golesLocal = (scores && scores[0] != null) ? Number(scores[0]) : null
         const golesVis = (scores && scores[1] != null) ? Number(scores[1]) : null
 
-        // Detectar eliminatorio y ganador por penales (si el partido está finalizado)
-        const esElim = esEliminatorio(roundName)
+        // Ganador por penales (si el partido está finalizado). esElim se calculó más arriba,
+        // porque también decide si el partido entra sin mirar los equipos habilitados.
         let ganadorPenalesId: number | null = null
         if (esElim && estado === 'finalizado') {
           const penScores = game.penalty_scores || game.penalties
